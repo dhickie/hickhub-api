@@ -30,7 +30,7 @@ func (c *AuthController) Authorise(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate the client ID and redirect URI
-	valid, err := c.authService.ValidateClient(clientID, redirectURI)
+	valid, err := c.authService.ValidateClientRedirect(clientID, redirectURI)
 	if err != nil {
 		utils.HTTP.RespondInternalServerError(w, err.Error())
 		return
@@ -55,7 +55,7 @@ func (c *AuthController) Authorise(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Credentials were valid, generate an auth code
-	code, err := c.authService.GenerateAuthCode(body.Email, scope)
+	code, err := c.authService.GenerateAuthCode(body.Email, scope, clientID, redirectURI)
 	if err != nil {
 		utils.HTTP.RespondInternalServerError(w, err.Error())
 		return
@@ -68,6 +68,99 @@ func (c *AuthController) Authorise(w http.ResponseWriter, r *http.Request) {
 	utils.HTTP.RespondOK(w, response)
 }
 
+// Token will either exchange an authorization code for an access token & refresh token, or refresh an existing token
+// using a refresh token
+func (c *AuthController) Token(w http.ResponseWriter, r *http.Request) {
+	// Ensure that the request has the correct body form (www-form-urlencoded)
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "application/x-www-form-urlencoded" {
+		utils.HTTP.RespondBadRequest(w, "Bad content type - should be application/x-www-form-urlencoded")
+		return
+	}
+
+	// Get the form values
+	grantType, clientID, clientSecret, redirectURL, codeOrToken, err := c.getTokenFormValues(r)
+	if err != nil {
+		utils.HTTP.RespondInternalServerError(w, err.Error())
+		return
+	}
+
+	// Validate the client credentials
+	valid, err := c.authService.ValidateClientCredentials(clientID, clientSecret)
+	if err != nil {
+		utils.HTTP.RespondInternalServerError(w, err.Error())
+		return
+	}
+	if !valid {
+		utils.HTTP.RespondUnauthorized(w)
+		return
+	}
+
+	// Check whether this is refreshing an existing access token, or exchanging an authorisation code
+	if grantType == "authorization_code" {
+		// Validate the provided code
+		userID, scope, err := c.authService.ValidateAuthCode(codeOrToken, clientID, redirectURL)
+		if err != nil {
+			utils.HTTP.RespondInternalServerError(w, err.Error())
+			return
+		}
+		if userID == "" {
+			utils.HTTP.RespondUnauthorized(w)
+			return
+		}
+
+		// The code's valid, generate access and refresh tokens for the client
+		accessToken, refreshToken, err := c.authService.GenerateAccessTokenPair(userID, scope)
+		if err != nil {
+			utils.HTTP.RespondInternalServerError(w, err.Error())
+			return
+		}
+
+		response := models.TokenResponse{
+			AccessToken:  accessToken,
+			RefreshToken: refreshToken,
+			ExpiresIn:    c.authService.AccessTokenLifetime,
+			Scope:        scope,
+			TokenType:    "bearer",
+		}
+
+		utils.HTTP.RespondOK(w, response)
+		return
+	} else if grantType == "refresh_token" {
+		// Validate the provided refresh token
+		userID, scope, err := c.authService.ValidateRefreshToken(codeOrToken)
+		if err != nil {
+			utils.HTTP.RespondInternalServerError(w, err.Error())
+			return
+		}
+		if userID == "" {
+			utils.HTTP.RespondUnauthorized(w)
+			return
+		}
+
+		// The refresh token is valid, refresh it and the associated access token
+		accessToken, refreshToken, err := c.authService.RefreshAccessTokenPair(codeOrToken)
+		if err != nil {
+			utils.HTTP.RespondInternalServerError(w, err.Error())
+			return
+		}
+
+		response := models.TokenResponse{
+			AccessToken:  accessToken,
+			RefreshToken: refreshToken,
+			ExpiresIn:    c.authService.AccessTokenLifetime,
+			Scope:        scope,
+			TokenType:    "bearer",
+		}
+
+		utils.HTTP.RespondOK(w, response)
+		return
+	}
+
+	utils.HTTP.RespondBadRequest(w, "Invalid grant type")
+	return
+}
+
 func (c *AuthController) getAuthParams(r *http.Request) (string, string, string) {
 	queryParams := r.URL.Query()
 	clientID := queryParams.Get("client_id")
@@ -75,4 +168,25 @@ func (c *AuthController) getAuthParams(r *http.Request) (string, string, string)
 	redirectURI := queryParams.Get("redirect_uri")
 
 	return clientID, scope, redirectURI
+}
+
+func (c *AuthController) getTokenFormValues(r *http.Request) (string, string, string, string, string, error) {
+	err := r.ParseForm()
+	if err != nil {
+		return "", "", "", "", "", err
+	}
+
+	grantType := r.Form.Get("grant_type")
+	clientID := r.Form.Get("client_id")
+	clientSecret := r.Form.Get("client_secret")
+	redirectURL := r.Form.Get("redirect_url")
+	codeOrToken := ""
+
+	if grantType == "authorization_code" {
+		codeOrToken = r.Form.Get("code")
+	} else {
+		codeOrToken = r.Form.Get("refresh_token")
+	}
+
+	return grantType, clientID, clientSecret, redirectURL, codeOrToken, nil
 }
