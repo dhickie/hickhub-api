@@ -62,7 +62,7 @@ func (c *AuthController) Authorise(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := models.AuthoriseResponse{
-		AuthorisationCode: code,
+		AuthorisationCode: *code,
 	}
 
 	utils.HTTP.RespondOK(w, response)
@@ -98,66 +98,76 @@ func (c *AuthController) Token(w http.ResponseWriter, r *http.Request) {
 
 	// Check whether this is refreshing an existing access token, or exchanging an authorisation code
 	if grantType == "authorization_code" {
-		// Validate the provided code
-		userID, scope, err := c.authService.ValidateAuthCode(codeOrToken, clientID, redirectURL)
-		if err != nil {
-			utils.HTTP.RespondInternalServerError(w, err.Error())
-			return
-		}
-		if userID == "" {
-			utils.HTTP.RespondUnauthorized(w)
-			return
-		}
-
-		// The code's valid, generate access and refresh tokens for the client
-		accessToken, refreshToken, err := c.authService.GenerateAccessTokenPair(userID, scope)
-		if err != nil {
-			utils.HTTP.RespondInternalServerError(w, err.Error())
-			return
-		}
-
-		response := models.TokenResponse{
-			AccessToken:  accessToken,
-			RefreshToken: refreshToken,
-			ExpiresIn:    c.authService.AccessTokenLifetime,
-			Scope:        scope,
-			TokenType:    "bearer",
-		}
-
-		utils.HTTP.RespondOK(w, response)
+		c.authCodeToken(w, codeOrToken, clientID, redirectURL)
 		return
 	} else if grantType == "refresh_token" {
-		// Validate the provided refresh token
-		userID, scope, err := c.authService.ValidateRefreshToken(codeOrToken)
-		if err != nil {
-			utils.HTTP.RespondInternalServerError(w, err.Error())
-			return
-		}
-		if userID == "" {
-			utils.HTTP.RespondUnauthorized(w)
-			return
-		}
-
-		// The refresh token is valid, refresh it and the associated access token
-		accessToken, refreshToken, err := c.authService.RefreshAccessTokenPair(codeOrToken)
-		if err != nil {
-			utils.HTTP.RespondInternalServerError(w, err.Error())
-			return
-		}
-
-		response := models.TokenResponse{
-			AccessToken:  accessToken,
-			RefreshToken: refreshToken,
-			ExpiresIn:    c.authService.AccessTokenLifetime,
-			Scope:        scope,
-			TokenType:    "bearer",
-		}
-
-		utils.HTTP.RespondOK(w, response)
+		c.refreshTokenToken(w, codeOrToken)
 		return
 	}
 
 	utils.HTTP.RespondBadRequest(w, "Invalid grant type")
+	return
+}
+
+func (c *AuthController) authCodeToken(w http.ResponseWriter, code, clientID, redirectURL string) {
+	// Validate the provided code
+	authorisation, err := c.authService.ValidateAuthCode(code, clientID, redirectURL)
+	if err != nil {
+		utils.HTTP.RespondInternalServerError(w, err.Error())
+		return
+	}
+	if authorisation == nil {
+		utils.HTTP.RespondUnauthorized(w)
+		return
+	}
+
+	// The code's valid, generate access and refresh tokens for the client
+	tokenPair, err := c.authService.GenerateAccessTokenPair(authorisation.UserID, authorisation.Scope)
+	if err != nil {
+		utils.HTTP.RespondInternalServerError(w, err.Error())
+		return
+	}
+
+	response := models.TokenResponse{
+		AccessToken:  tokenPair.AccessToken,
+		RefreshToken: tokenPair.RefreshToken,
+		ExpiresIn:    c.authService.AccessTokenLifetime,
+		Scope:        authorisation.Scope,
+		TokenType:    "bearer",
+	}
+
+	utils.HTTP.RespondOK(w, response)
+	return
+}
+
+func (c *AuthController) refreshTokenToken(w http.ResponseWriter, refreshToken string) {
+	// Validate the provided refresh token
+	valid, err := c.authService.ValidateRefreshToken(refreshToken)
+	if err != nil {
+		utils.HTTP.RespondInternalServerError(w, err.Error())
+		return
+	}
+	if !valid {
+		utils.HTTP.RespondUnauthorized(w)
+		return
+	}
+
+	// The refresh token is valid, refresh it and the associated access token
+	tokenPair, err := c.authService.RefreshAccessTokenPair(refreshToken)
+	if err != nil {
+		utils.HTTP.RespondInternalServerError(w, err.Error())
+		return
+	}
+
+	response := models.TokenResponse{
+		AccessToken:  tokenPair.AccessToken,
+		RefreshToken: tokenPair.RefreshToken,
+		ExpiresIn:    c.authService.AccessTokenLifetime,
+		Scope:        tokenPair.Scope,
+		TokenType:    "bearer",
+	}
+
+	utils.HTTP.RespondOK(w, response)
 	return
 }
 

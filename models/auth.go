@@ -26,3 +26,12 @@ type Client struct {
 	Secret       string
 	RedirectURIs []string
 }
+
+// Authorisation represents authorisation given by a user for a particular client, scope and redirect URL
+type Authorisation struct {
+	UserID      string
+	Expiry      time.Time
+	Scope       string
+	ClientID    string
+	RedirectURL string
+}
