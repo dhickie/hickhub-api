@@ -21,7 +21,7 @@ func NewUserController(usersDAL *dal.UsersDAL) UserController {
 }
 
 // Subject returns the messaging subject name for the user
-func (c *UserController) Subject(w http.ResponseWriter, userID string) {
+func (c *UserController) Subject(w http.ResponseWriter, userID string, body []byte) {
 	// Get the user's object
 	user, err := c.usersDAL.GetUserByID(userID)
 	if err != nil {

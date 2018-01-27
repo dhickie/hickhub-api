@@ -48,13 +48,15 @@ func main() {
 	// Create the required controllers
 	authController := controllers.NewAuthController(authService)
 	userController := controllers.NewUserController(usersDAL)
+	messagingController := controllers.NewMessagingController(config, usersDAL)
 
 	// Setup routes
 	r := mux.NewRouter()
 	r.HandleFunc("/oauth/authorize", authController.Authorise).Methods("POST")
 	r.HandleFunc("/oauth/token", authController.Token).Methods("POST")
 
-	r.HandleFunc("/user/subject", userAuthMiddleware{"messaging", userController.Subject}.Handle).Methods("GET")
+	r.HandleFunc("/user/messaging/subject", userAuthMiddleware{"messaging", userController.Subject}.Handle).Methods("GET")
+	r.HandleFunc("/user/messaging/request", userAuthMiddleware{"messaging", messagingController.Request}.Handle).Methods("POST")
 
 	// Listen for requests
 	err = http.ListenAndServe(fmt.Sprintf(":%v", config.APIPort), r)
@@ -86,7 +88,7 @@ func createDALs(config *models.Config) {
 
 type userAuthMiddleware struct {
 	requiredScope string
-	h             func(http.ResponseWriter, string)
+	h             func(http.ResponseWriter, string, []byte)
 }
 
 func (m userAuthMiddleware) Handle(w http.ResponseWriter, r *http.Request) {
@@ -114,6 +116,14 @@ func (m userAuthMiddleware) Handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get the body of the request
+	body, err := ioutil.ReadAll(r.Body)
+	defer r.Body.Close()
+	if err != nil {
+		utils.HTTP.RespondInternalServerError(w, err.Error())
+		return
+	}
+
 	// All good, pass the associated user ID on to the handler
-	m.h(w, tokenPair.UserID)
+	m.h(w, tokenPair.UserID, body)
 }

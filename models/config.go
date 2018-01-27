@@ -8,4 +8,5 @@ type Config struct {
 	RefreshTokenLifetime int    `json:"refresh_token_lifetime"`
 	AuthCodeHashKey      string `json:"auth_code_hash_key"`
 	SQLConnectionString  string `json:"sql_connection_string"`
+	NatsConnectionString string `json:"nats_connection_string"`
 }
