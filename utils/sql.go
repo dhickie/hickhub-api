@@ -23,7 +23,7 @@ func (u *sqlUtil) GetSingle(rows *sql.Rows, dest ...interface{}) (bool, error) {
 			return false, ErrTooManyRows
 		}
 
-		err := rows.Scan(dest)
+		err := rows.Scan(dest...)
 		if err != nil {
 			return false, err
 		}

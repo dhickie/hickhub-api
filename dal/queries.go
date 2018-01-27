@@ -77,5 +77,5 @@ const getUser = `
 SELECT id,
 	email,
 	pass_hash
-FROM clients
+FROM users
 `

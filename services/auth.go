@@ -140,7 +140,7 @@ func (s *AuthService) ValidateAuthCode(code, clientID, redirectURL string) (*mod
 	if err != nil {
 		return nil, nil
 	}
-	if expiry.After(time.Now()) {
+	if expiry.Before(time.Now()) {
 		return nil, nil
 	}
 
@@ -178,7 +178,7 @@ func (s *AuthService) ValidateRefreshToken(refreshToken string) (bool, error) {
 	}
 
 	// Validate that the refresh token hasn't expired
-	if tokenPair.RefreshTokenExpiry.After(time.Now()) {
+	if tokenPair.RefreshTokenExpiry.Before(time.Now()) {
 		return false, nil
 	}
 
@@ -262,7 +262,7 @@ func (s *AuthService) encryptCode(authCode string) (*string, error) {
 		return nil, err
 	}
 
-	encrypted := string(gcm.Seal(nonce, nonce, []byte(authCode), nil))
+	encrypted := base64.URLEncoding.EncodeToString(gcm.Seal(nonce, nonce, []byte(authCode), nil))
 	return &encrypted, nil
 }
 
@@ -272,7 +272,10 @@ func (s *AuthService) decryptCode(encryptedCode string) (*string, error) {
 		return nil, err
 	}
 
-	bytes := []byte(encryptedCode)
+	bytes, err := base64.URLEncoding.DecodeString(encryptedCode)
+	if err != nil {
+		return nil, err
+	}
 	nonceSize := gcm.NonceSize()
 	if len(bytes) < nonceSize {
 		return nil, nil

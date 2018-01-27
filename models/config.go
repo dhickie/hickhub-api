@@ -2,6 +2,7 @@ package models
 
 // Config represents the config of the API
 type Config struct {
+	APIPort              int    `json:"api_port"`
 	AuthCodeLifetime     int    `json:"auth_code_lifetime"`
 	AccessTokenLifetime  int    `json:"access_token_lifetime"`
 	RefreshTokenLifetime int    `json:"refresh_token_lifetime"`

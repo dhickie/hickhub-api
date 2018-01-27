@@ -1,0 +1,8 @@
+{
+    "api_port":5678,
+    "auth_code_lifetime":120,
+    "access_token_lifetime":3600,
+    "refresh_token_lifetime":86400,
+    "auth_code_hash_key":"",
+    "sql_connection_string":""
+}

@@ -22,7 +22,6 @@ func NewAuthController(authService *services.AuthService) AuthController {
 
 // Authorise validates a user's email and password, and returns a short lived auth code if they are valid
 func (c *AuthController) Authorise(w http.ResponseWriter, r *http.Request) {
-	clientID, scope, redirectURI := c.getAuthParams(r)
 	body := new(models.AuthoriseRequest)
 	if err := utils.HTTP.ReadRequestBody(r, body); err != nil {
 		utils.HTTP.RespondBadRequest(w, err.Error())
@@ -30,7 +29,7 @@ func (c *AuthController) Authorise(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate the client ID and redirect URI
-	valid, err := c.authService.ValidateClientRedirect(clientID, redirectURI)
+	valid, err := c.authService.ValidateClientRedirect(body.ClientID, body.RedirectURI)
 	if err != nil {
 		utils.HTTP.RespondInternalServerError(w, err.Error())
 		return
@@ -55,7 +54,7 @@ func (c *AuthController) Authorise(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Credentials were valid, generate an auth code
-	code, err := c.authService.GenerateAuthCode(body.Email, scope, clientID, redirectURI)
+	code, err := c.authService.GenerateAuthCode(body.Email, body.Scope, body.ClientID, body.RedirectURI)
 	if err != nil {
 		utils.HTTP.RespondInternalServerError(w, err.Error())
 		return
@@ -169,15 +168,6 @@ func (c *AuthController) refreshTokenToken(w http.ResponseWriter, refreshToken s
 
 	utils.HTTP.RespondOK(w, response)
 	return
-}
-
-func (c *AuthController) getAuthParams(r *http.Request) (string, string, string) {
-	queryParams := r.URL.Query()
-	clientID := queryParams.Get("client_id")
-	scope := queryParams.Get("scope")
-	redirectURI := queryParams.Get("redirect_uri")
-
-	return clientID, scope, redirectURI
 }
 
 func (c *AuthController) getTokenFormValues(r *http.Request) (string, string, string, string, string, error) {
