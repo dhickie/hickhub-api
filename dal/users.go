@@ -62,7 +62,8 @@ func (dal *UsersDAL) getFromDatabase(query, searchParam string) (*models.User, e
 	found, err := utils.SQL.GetSingle(rows,
 		&result.ID,
 		&result.Email,
-		&result.PassHash)
+		&result.PassHash,
+		&result.MessagingSubject)
 	if !found || err != nil {
 		return nil, err
 	}

@@ -28,20 +28,7 @@ type AuthService struct {
 }
 
 // NewAuthService returns a new auth service using the provided config
-func NewAuthService(config *models.Config) (*AuthService, error) {
-	authDAL, err := dal.NewOAuthDAL(config)
-	if err != nil {
-		return nil, err
-	}
-	userDAL, err := dal.NewUsersDAL(config)
-	if err != nil {
-		return nil, err
-	}
-	clientDAL, err := dal.NewClientsDAL(config)
-	if err != nil {
-		return nil, err
-	}
-
+func NewAuthService(config *models.Config, authDAL *dal.OAuthDAL, userDAL *dal.UsersDAL, clientDAL *dal.ClientsDAL) (*AuthService, error) {
 	return &AuthService{
 		authDAL:              authDAL,
 		userDAL:              userDAL,

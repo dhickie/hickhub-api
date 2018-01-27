@@ -77,6 +77,7 @@ const getUserByEmail = getUser + " WHERE email = $1"
 const getUser = `
 SELECT id,
 	email,
-	pass_hash
+	pass_hash,
+	messaging_subject
 FROM users
 `

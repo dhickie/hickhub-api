@@ -13,3 +13,8 @@ type TokenResponse struct {
 	RefreshToken string `json:"refresh_token"`
 	Scope        string `json:"scope"`
 }
+
+// SubjectResponse is returned to requests for a user's messaging subject
+type SubjectResponse struct {
+	Subject string `json:"subject"`
+}
