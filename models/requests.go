@@ -8,3 +8,14 @@ type AuthoriseRequest struct {
 	Scope       string `json:"scope"`
 	RedirectURI string `json:"redirect_uri"`
 }
+
+// TokenRequest is received in a form by the Token endpoint
+type TokenRequest struct {
+	GrantType         string `schema:"grant_type"`
+	ClientID          string `schema:"client_id"`
+	ClientSecret      string `schema:"client_secret"`
+	RedirectURL       string `schema:"redirect_url"`
+	AuthorisationCode string `schema:"code"`
+	RefreshToken      string `schema:"refresh_token"`
+	Scope             string `schema:"scope"`
+}

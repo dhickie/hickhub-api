@@ -73,7 +73,7 @@ func (s *AuthService) ValidateClientRedirect(clientID, redirectURI string) (bool
 }
 
 // ValidateClientCredentials validates provided client credentials against values from the database
-func (s *AuthService) ValidateClientCredentials(clientID, clientSecret string) (bool, error) {
+func (s *AuthService) ValidateClientCredentials(clientID, clientSecret, grantType string) (bool, error) {
 	// Get the actual client secret for this client
 	client, err := s.clientDAL.GetClientByID(clientID)
 	if err != nil {
@@ -82,6 +82,12 @@ func (s *AuthService) ValidateClientCredentials(clientID, clientSecret string) (
 
 	// Return false if the secrets aren't the same
 	if client.Secret != clientSecret {
+		return false, nil
+	}
+
+	// Check that this client can request this type of grant
+	if client.Type == models.ClientTypePublic && grantType == models.GrantTypeClientCredentials {
+		// Only confidential clients may request the client credentials grant
 		return false, nil
 	}
 

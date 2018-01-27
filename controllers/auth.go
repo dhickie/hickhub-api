@@ -3,6 +3,8 @@ package controllers
 import (
 	"net/http"
 
+	"github.com/gorilla/schema"
+
 	"github.com/dhickie/hickhub-api/models"
 	"github.com/dhickie/hickhub-api/services"
 	"github.com/dhickie/hickhub-api/utils"
@@ -78,14 +80,20 @@ func (c *AuthController) Token(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get the form values
-	grantType, clientID, clientSecret, redirectURL, codeOrToken, err := c.getTokenFormValues(r)
+	request := new(models.TokenRequest)
+	err := r.ParseForm()
 	if err != nil {
 		utils.HTTP.RespondInternalServerError(w, err.Error())
 		return
 	}
+	decoder := schema.NewDecoder()
+	err = decoder.Decode(request, r.PostForm)
+	if err != nil {
+		utils.HTTP.RespondInternalServerError(w, err.Error())
+	}
 
 	// Validate the client credentials
-	valid, err := c.authService.ValidateClientCredentials(clientID, clientSecret)
+	valid, err := c.authService.ValidateClientCredentials(request.ClientID, request.ClientSecret, request.GrantType)
 	if err != nil {
 		utils.HTTP.RespondInternalServerError(w, err.Error())
 		return
@@ -95,12 +103,15 @@ func (c *AuthController) Token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check whether this is refreshing an existing access token, or exchanging an authorisation code
-	if grantType == "authorization_code" {
-		c.authCodeToken(w, codeOrToken, clientID, redirectURL)
+	// Check what sort of grant the request is for, and take appropriate action
+	if request.GrantType == models.GrantTypeAuthCode {
+		c.authCodeToken(w, request.AuthorisationCode, request.ClientID, request.RedirectURL)
 		return
-	} else if grantType == "refresh_token" {
-		c.refreshTokenToken(w, codeOrToken)
+	} else if request.GrantType == models.GrantTypeRefreshToken {
+		c.refreshTokenToken(w, request.RefreshToken)
+		return
+	} else if request.GrantType == models.GrantTypeClientCredentials {
+		c.clientToken(w, request.Scope)
 		return
 	}
 
@@ -170,23 +181,22 @@ func (c *AuthController) refreshTokenToken(w http.ResponseWriter, refreshToken s
 	return
 }
 
-func (c *AuthController) getTokenFormValues(r *http.Request) (string, string, string, string, string, error) {
-	err := r.ParseForm()
+func (c *AuthController) clientToken(w http.ResponseWriter, scope string) {
+	// Generate a new token pair for an empty user ID, since this isn't a user authenticating
+	tokenPair, err := c.authService.GenerateAccessTokenPair("", scope)
 	if err != nil {
-		return "", "", "", "", "", err
+		utils.HTTP.RespondInternalServerError(w, err.Error())
+		return
 	}
 
-	grantType := r.Form.Get("grant_type")
-	clientID := r.Form.Get("client_id")
-	clientSecret := r.Form.Get("client_secret")
-	redirectURL := r.Form.Get("redirect_url")
-	codeOrToken := ""
-
-	if grantType == "authorization_code" {
-		codeOrToken = r.Form.Get("code")
-	} else {
-		codeOrToken = r.Form.Get("refresh_token")
+	response := models.TokenResponse{
+		AccessToken:  tokenPair.AccessToken,
+		RefreshToken: tokenPair.RefreshToken,
+		ExpiresIn:    c.authService.AccessTokenLifetime,
+		Scope:        tokenPair.Scope,
+		TokenType:    "bearer",
 	}
 
-	return grantType, clientID, clientSecret, redirectURL, codeOrToken, nil
+	utils.HTTP.RespondOK(w, response)
+	return
 }

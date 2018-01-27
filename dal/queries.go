@@ -65,6 +65,7 @@ WHERE id = $1
 const getClientByID = `
 SELECT id,
 	secret,
+	type,
 	redirect_uris
 FROM clients
 WHERE id = $1

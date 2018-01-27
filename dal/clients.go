@@ -46,8 +46,9 @@ func (dal *ClientsDAL) GetClientByID(ID string) (*models.Client, error) {
 
 	var id string
 	var secret string
-	var uris string
-	found, err := utils.SQL.GetSingle(rows, &id, &secret, &uris)
+	var clientType string
+	var uris sql.NullString
+	found, err := utils.SQL.GetSingle(rows, &id, &secret, &clientType, &uris)
 	if !found || err != nil {
 		return nil, err
 	}
@@ -55,7 +56,11 @@ func (dal *ClientsDAL) GetClientByID(ID string) (*models.Client, error) {
 	result := new(models.Client)
 	result.ID = id
 	result.Secret = secret
-	result.RedirectURIs = strings.Split(uris, ";")
+	result.Type = clientType
+
+	if uris.Valid {
+		result.RedirectURIs = strings.Split(uris.String, ";")
+	}
 
 	// Populate the cache
 	dal.clientCache[ID] = result

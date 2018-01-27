@@ -7,6 +7,20 @@ import (
 // Scopes define what actions and data are available to an authorised client application
 const (
 	ScopeMessaging = "messaging"
+	ScopeAdmin     = "admin"
+)
+
+// Client types identify what sort of client is trying to authenticate
+const (
+	ClientTypePublic       = "public"
+	ClientTypeConfidential = "confidential"
+)
+
+// Grant types identify the type of auth grant being requested
+const (
+	GrantTypeAuthCode          = "authorization_code"
+	GrantTypeRefreshToken      = "refresh_token"
+	GrantTypeClientCredentials = "client_credentials"
 )
 
 // AccessTokenPair represents a pair of access tokens used to authenticate with the API
@@ -24,6 +38,7 @@ type AccessTokenPair struct {
 type Client struct {
 	ID           string
 	Secret       string
+	Type         string
 	RedirectURIs []string
 }
 

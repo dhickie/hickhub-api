@@ -2,6 +2,7 @@ package dal
 
 import (
 	"database/sql"
+	"strconv"
 	"time"
 
 	// Database driver for PostgreSQL
@@ -73,13 +74,19 @@ func (dal *OAuthDAL) GetAccessTokenPairByRefreshToken(refreshToken string) (*mod
 
 // InsertAccessTokenPair inserts the provided access token pair in to the database and populates the cache
 func (dal *OAuthDAL) InsertAccessTokenPair(tokenPair *models.AccessTokenPair) error {
+	var userID sql.NullInt64
+	if tokenPair.UserID != "" {
+		userID.Valid = true
+		userID.Int64, _ = strconv.ParseInt(tokenPair.UserID, 10, 64)
+	}
+
 	// Add it to the database, and get the ID of the resulting row back
 	rows, err := dal.db.Query(Queries.InsertTokenPair,
 		tokenPair.AccessToken,
 		tokenPair.RefreshToken,
 		tokenPair.AccessTokenExpiry,
 		tokenPair.RefreshTokenExpiry,
-		tokenPair.UserID,
+		userID,
 		tokenPair.Scope)
 	if err != nil {
 		return err
