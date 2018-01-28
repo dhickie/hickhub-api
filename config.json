@@ -5,5 +5,6 @@
     "refresh_token_lifetime":86400,
     "auth_code_hash_key":"",
     "sql_connection_string":"",
-    "nats_connection_string":""
+    "nats_connection_string":"",
+    "nats_admin_key":""
 }

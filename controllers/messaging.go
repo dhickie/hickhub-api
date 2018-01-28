@@ -19,7 +19,8 @@ type MessagingController struct {
 // NewMessagingController returns a new instance of the messaging controller
 func NewMessagingController(config *models.Config, dal *dal.UsersDAL) MessagingController {
 	// Create the connection to NATS
-	nc, err := nats.Connect(config.NatsConnectionString)
+	adminKey := config.NatsAdminKey
+	nc, err := nats.Connect(config.NatsConnectionString, nats.Token(adminKey))
 	if err != nil {
 		panic(err)
 	}
