@@ -12,26 +12,41 @@ import (
 )
 
 // ClientsDAL is a DAL component for accessing OAuth Client information
-type ClientsDAL struct {
+type ClientsDAL interface {
+	GetClientByID(ID string) (*models.Client, error)
+}
+
+// PostgresClientsDAL is a Postgres implementation of the Clients DAL
+type PostgresClientsDAL struct {
 	db          *sql.DB
 	clientCache map[string]*models.Client
 }
 
-// NewClientsDAL returns a new ClientsDAL service using the provided config
-func NewClientsDAL(config *models.Config) (*ClientsDAL, error) {
+// MustPostgresClientsDAL either returns a valid clients DAL service, or panics on error
+func MustPostgresClientsDAL(config *models.Config) ClientsDAL {
+	d, err := NewPostgresClientsDAL(config)
+	if err != nil {
+		panic(err)
+	}
+
+	return d
+}
+
+// NewPostgresClientsDAL returns a new ClientsDAL service using the provided config
+func NewPostgresClientsDAL(config *models.Config) (ClientsDAL, error) {
 	db, err := sql.Open("postgres", config.SQLConnectionString)
 	if err != nil {
 		return nil, err
 	}
 
-	return &ClientsDAL{
+	return &PostgresClientsDAL{
 		db:          db,
 		clientCache: make(map[string]*models.Client),
 	}, nil
 }
 
 // GetClientByID returns a pointer to the client with the specified ID
-func (dal *ClientsDAL) GetClientByID(ID string) (*models.Client, error) {
+func (dal *PostgresClientsDAL) GetClientByID(ID string) (*models.Client, error) {
 	// Check the cache
 	if val, ok := dal.clientCache[ID]; ok {
 		return val, nil

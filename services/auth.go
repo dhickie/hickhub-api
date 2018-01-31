@@ -12,24 +12,48 @@ import (
 
 	"github.com/dhickie/hickhub-api/dal"
 	"github.com/dhickie/hickhub-api/models"
+	"github.com/dhickie/hickhub-api/utils"
 
 	"golang.org/x/crypto/bcrypt"
 )
 
 // AuthService provides methods for validation passwords and auth tokens
-type AuthService struct {
-	authDAL              *dal.OAuthDAL
-	userDAL              *dal.UsersDAL
-	clientDAL            *dal.ClientsDAL
+type AuthService interface {
+	ValidateClientRedirect(clientID, redirectURI string) (bool, error)
+	ValidateClientCredentials(clientID, clientSecret, grantType string) (bool, error)
+	ValidatePassword(email, password string) (bool, error)
+	GenerateAuthCode(email, scope, clientID, redirectURI string) (*string, error)
+	ValidateAuthCode(code, clientID, redirectURL string) (*models.Authorisation, error)
+	ValidateRefreshToken(refreshToken string) (bool, error)
+	GenerateAccessTokenPair(userID, scope string) (*models.AccessTokenPair, error)
+	RefreshAccessTokenPair(refreshToken string) (*models.AccessTokenPair, error)
+	GetAccessTokenLifetime() int
+}
+
+// HickHubAuthService is the HickHub implementation of the AuthService interface
+type HickHubAuthService struct {
+	authDAL              dal.OAuthDAL
+	userDAL              dal.UsersDAL
+	clientDAL            dal.ClientsDAL
 	authCodeLifetime     int
 	AccessTokenLifetime  int
 	RefreshTokenLifetime int
 	authCodeHashKey      string
 }
 
-// NewAuthService returns a new auth service using the provided config
-func NewAuthService(config *models.Config, authDAL *dal.OAuthDAL, userDAL *dal.UsersDAL, clientDAL *dal.ClientsDAL) (*AuthService, error) {
-	return &AuthService{
+// MustHickHubAuthService either returns a valid auth service or panics on error
+func MustHickHubAuthService(config *models.Config, authDAL dal.OAuthDAL, userDAL dal.UsersDAL, clientDAL dal.ClientsDAL) AuthService {
+	s, err := NewHickHubAuthService(config, authDAL, userDAL, clientDAL)
+	if err != nil {
+		panic(err)
+	}
+
+	return s
+}
+
+// NewHickHubAuthService returns a new auth service using the provided config
+func NewHickHubAuthService(config *models.Config, authDAL dal.OAuthDAL, userDAL dal.UsersDAL, clientDAL dal.ClientsDAL) (AuthService, error) {
+	return &HickHubAuthService{
 		authDAL:              authDAL,
 		userDAL:              userDAL,
 		clientDAL:            clientDAL,
@@ -43,7 +67,7 @@ func NewAuthService(config *models.Config, authDAL *dal.OAuthDAL, userDAL *dal.U
 const dateFormat = "20060102150405000"
 
 // ValidateClientRedirect validates the client details of the auth request
-func (s *AuthService) ValidateClientRedirect(clientID, redirectURI string) (bool, error) {
+func (s *HickHubAuthService) ValidateClientRedirect(clientID, redirectURI string) (bool, error) {
 	// Get the valid redirect URIs for this client
 	client, err := s.clientDAL.GetClientByID(clientID)
 	if err != nil {
@@ -60,7 +84,7 @@ func (s *AuthService) ValidateClientRedirect(clientID, redirectURI string) (bool
 }
 
 // ValidateClientCredentials validates provided client credentials against values from the database
-func (s *AuthService) ValidateClientCredentials(clientID, clientSecret, grantType string) (bool, error) {
+func (s *HickHubAuthService) ValidateClientCredentials(clientID, clientSecret, grantType string) (bool, error) {
 	// Get the actual client secret for this client
 	client, err := s.clientDAL.GetClientByID(clientID)
 	if err != nil {
@@ -82,7 +106,7 @@ func (s *AuthService) ValidateClientCredentials(clientID, clientSecret, grantTyp
 }
 
 // ValidatePassword validates that the give email/password combination is correct
-func (s *AuthService) ValidatePassword(email, password string) (bool, error) {
+func (s *HickHubAuthService) ValidatePassword(email, password string) (bool, error) {
 	// Get the user ID
 	user, err := s.userDAL.GetUserByEmail(email)
 	if err != nil {
@@ -100,7 +124,7 @@ func (s *AuthService) ValidatePassword(email, password string) (bool, error) {
 }
 
 // GenerateAuthCode generates a new auth code for the given email address and scope
-func (s *AuthService) GenerateAuthCode(email, scope, clientID, redirectURI string) (*string, error) {
+func (s *HickHubAuthService) GenerateAuthCode(email, scope, clientID, redirectURI string) (*string, error) {
 	// Get the user's ID
 	user, err := s.userDAL.GetUserByEmail(email)
 	if err != nil {
@@ -115,7 +139,7 @@ func (s *AuthService) GenerateAuthCode(email, scope, clientID, redirectURI strin
 
 // ValidateAuthCode validates the provided code against the provided client ID and redirect URI. If valid,
 // it returns the decoded authorisation. Otherwise, it returns nil
-func (s *AuthService) ValidateAuthCode(code, clientID, redirectURL string) (*models.Authorisation, error) {
+func (s *HickHubAuthService) ValidateAuthCode(code, clientID, redirectURL string) (*models.Authorisation, error) {
 	// Decrypt the code
 	decrypted, err := s.decryptCode(code)
 	if err != nil || decrypted == nil {
@@ -160,7 +184,7 @@ func (s *AuthService) ValidateAuthCode(code, clientID, redirectURL string) (*mod
 }
 
 // ValidateRefreshToken validates that the provided refresh token is valid
-func (s *AuthService) ValidateRefreshToken(refreshToken string) (bool, error) {
+func (s *HickHubAuthService) ValidateRefreshToken(refreshToken string) (bool, error) {
 	// Get the access token pair from storage
 	tokenPair, err := s.authDAL.GetAccessTokenPairByRefreshToken(refreshToken)
 	if err != nil {
@@ -180,13 +204,13 @@ func (s *AuthService) ValidateRefreshToken(refreshToken string) (bool, error) {
 
 // GenerateAccessTokenPair generates an access token and refresh token for the given user ID and scope
 // and stores it to the database
-func (s *AuthService) GenerateAccessTokenPair(userID, scope string) (*models.AccessTokenPair, error) {
+func (s *HickHubAuthService) GenerateAccessTokenPair(userID, scope string) (*models.AccessTokenPair, error) {
 	// Generate two random tokens
-	accessToken, err := s.generateRandomToken()
+	accessToken, err := utils.Crypto.GenerateRandomToken(32)
 	if err != nil {
 		return nil, err
 	}
-	refreshToken, err := s.generateRandomToken()
+	refreshToken, err := utils.Crypto.GenerateRandomToken(32)
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +235,7 @@ func (s *AuthService) GenerateAccessTokenPair(userID, scope string) (*models.Acc
 }
 
 // RefreshAccessTokenPair refreshes the token pair with the provided refresh token
-func (s *AuthService) RefreshAccessTokenPair(refreshToken string) (*models.AccessTokenPair, error) {
+func (s *HickHubAuthService) RefreshAccessTokenPair(refreshToken string) (*models.AccessTokenPair, error) {
 	// Get the current token pair
 	tokenPair, err := s.authDAL.GetAccessTokenPairByRefreshToken(refreshToken)
 	if err != nil || tokenPair == nil {
@@ -232,19 +256,12 @@ func (s *AuthService) RefreshAccessTokenPair(refreshToken string) (*models.Acces
 	return newPair, nil
 }
 
-func (s *AuthService) generateRandomToken() (string, error) {
-	// Get a random byte array
-	bytes := make([]byte, 16)
-	_, err := rand.Read(bytes)
-	if err != nil {
-		return "", err
-	}
-
-	// Encode it as URL encoded base 64 string
-	return base64.URLEncoding.EncodeToString(bytes), nil
+// GetAccessTokenLifetime returns the lifetime of an access token issued by this service
+func (s *HickHubAuthService) GetAccessTokenLifetime() int {
+	return s.AccessTokenLifetime
 }
 
-func (s *AuthService) encryptCode(authCode string) (*string, error) {
+func (s *HickHubAuthService) encryptCode(authCode string) (*string, error) {
 	gcm, err := s.getGCM()
 	if err != nil {
 		return nil, err
@@ -259,7 +276,7 @@ func (s *AuthService) encryptCode(authCode string) (*string, error) {
 	return &encrypted, nil
 }
 
-func (s *AuthService) decryptCode(encryptedCode string) (*string, error) {
+func (s *HickHubAuthService) decryptCode(encryptedCode string) (*string, error) {
 	gcm, err := s.getGCM()
 	if err != nil {
 		return nil, err
@@ -284,7 +301,7 @@ func (s *AuthService) decryptCode(encryptedCode string) (*string, error) {
 	return &decryptedString, err
 }
 
-func (s *AuthService) getGCM() (cipher.AEAD, error) {
+func (s *HickHubAuthService) getGCM() (cipher.AEAD, error) {
 	c, err := aes.NewCipher([]byte(s.authCodeHashKey))
 	if err != nil {
 		return nil, err

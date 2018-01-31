@@ -17,10 +17,11 @@ import (
 )
 
 var (
-	authDAL     *dal.OAuthDAL
-	clientsDAL  *dal.ClientsDAL
-	usersDAL    *dal.UsersDAL
-	authService *services.AuthService
+	authDAL          dal.OAuthDAL
+	clientsDAL       dal.ClientsDAL
+	usersDAL         dal.UsersDAL
+	authService      services.AuthService
+	messagingService services.MessagingService
 )
 
 func main() {
@@ -37,18 +38,18 @@ func main() {
 	}
 
 	// Create all the DAL services
-	createDALs(config)
+	authDAL = dal.MustPostgresOAuthDAL(config)
+	clientsDAL = dal.MustPostgresClientsDAL(config)
+	usersDAL = dal.MustPostgresUsersDAL(config)
 
 	// Create the required services
-	authService, err = services.NewAuthService(config, authDAL, usersDAL, clientsDAL)
-	if err != nil {
-		panic(err)
-	}
+	authService = services.MustHickHubAuthService(config, authDAL, usersDAL, clientsDAL)
+	messagingService = services.MustNatsMessagingService(config)
 
 	// Create the required controllers
 	authController := controllers.NewAuthController(authService)
 	userController := controllers.NewUserController(usersDAL)
-	messagingController := controllers.NewMessagingController(config, usersDAL)
+	messagingController := controllers.NewMessagingController(usersDAL, messagingService)
 
 	// Setup routes
 	r := mux.NewRouter()
@@ -65,25 +66,6 @@ func main() {
 	}
 
 	select {}
-}
-
-func createDALs(config *models.Config) {
-	var err error
-
-	authDAL, err = dal.NewOAuthDAL(config)
-	if err != nil {
-		panic(err)
-	}
-
-	clientsDAL, err = dal.NewClientsDAL(config)
-	if err != nil {
-		panic(err)
-	}
-
-	usersDAL, err = dal.NewUsersDAL(config)
-	if err != nil {
-		panic(err)
-	}
 }
 
 type userAuthMiddleware struct {

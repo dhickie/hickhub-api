@@ -8,20 +8,36 @@ import (
 )
 
 // UsersDAL is a DAL component for accessing user data
-type UsersDAL struct {
+type UsersDAL interface {
+	GetUserByID(ID string) (*models.User, error)
+	GetUserByEmail(email string) (*models.User, error)
+}
+
+// PostgresUsersDAL is a Postgres implementation of the UsersDAL interface
+type PostgresUsersDAL struct {
 	db            *sql.DB
 	userCache     map[string]*models.User
 	emailMapCache map[string]string
 }
 
-// NewUsersDAL returns a new UsersDAL service using the provided config
-func NewUsersDAL(config *models.Config) (*UsersDAL, error) {
+// MustPostgresUsersDAL either returns a valid PostgresUsersDAL object or panics on error
+func MustPostgresUsersDAL(config *models.Config) UsersDAL {
+	d, err := NewPostgresUsersDAL(config)
+	if err != nil {
+		panic(err)
+	}
+
+	return d
+}
+
+// NewPostgresUsersDAL returns a new PostgresUsersDAL service using the provided config
+func NewPostgresUsersDAL(config *models.Config) (UsersDAL, error) {
 	db, err := sql.Open("postgres", config.SQLConnectionString)
 	if err != nil {
 		return nil, err
 	}
 
-	return &UsersDAL{
+	return &PostgresUsersDAL{
 		db:            db,
 		userCache:     make(map[string]*models.User),
 		emailMapCache: make(map[string]string),
@@ -29,7 +45,7 @@ func NewUsersDAL(config *models.Config) (*UsersDAL, error) {
 }
 
 // GetUserByID returns a pointer to the user with the specified ID
-func (dal *UsersDAL) GetUserByID(ID string) (*models.User, error) {
+func (dal *PostgresUsersDAL) GetUserByID(ID string) (*models.User, error) {
 	// Check the cache
 	if val, ok := dal.userCache[ID]; ok {
 		return val, nil
@@ -40,7 +56,7 @@ func (dal *UsersDAL) GetUserByID(ID string) (*models.User, error) {
 }
 
 // GetUserByEmail returns a pointer to the user with the specified email
-func (dal *UsersDAL) GetUserByEmail(email string) (*models.User, error) {
+func (dal *PostgresUsersDAL) GetUserByEmail(email string) (*models.User, error) {
 	// Check the cache
 	if val, ok := dal.emailMapCache[email]; ok {
 		return dal.GetUserByID(val)
@@ -50,7 +66,7 @@ func (dal *UsersDAL) GetUserByEmail(email string) (*models.User, error) {
 	return dal.getFromDatabase(Queries.GetUserByEmail, email)
 }
 
-func (dal *UsersDAL) getFromDatabase(query, searchParam string) (*models.User, error) {
+func (dal *PostgresUsersDAL) getFromDatabase(query, searchParam string) (*models.User, error) {
 	rows, err := dal.db.Query(query, searchParam)
 	if err != nil {
 		return nil, err
@@ -73,7 +89,7 @@ func (dal *UsersDAL) getFromDatabase(query, searchParam string) (*models.User, e
 	return result, nil
 }
 
-func (dal *UsersDAL) populateCache(user *models.User) {
+func (dal *PostgresUsersDAL) populateCache(user *models.User) {
 	dal.userCache[user.ID] = user
 	dal.emailMapCache[user.Email] = user.ID
 }

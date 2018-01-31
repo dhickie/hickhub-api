@@ -10,11 +10,11 @@ import (
 
 // UserController provides access to endpoints which provide information about a user
 type UserController struct {
-	usersDAL *dal.UsersDAL
+	usersDAL dal.UsersDAL
 }
 
 // NewUserController creates a new user controller using the provided user DAL service
-func NewUserController(usersDAL *dal.UsersDAL) UserController {
+func NewUserController(usersDAL dal.UsersDAL) UserController {
 	return UserController{
 		usersDAL: usersDAL,
 	}

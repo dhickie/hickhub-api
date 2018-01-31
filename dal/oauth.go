@@ -13,16 +13,35 @@ import (
 	"github.com/patrickmn/go-cache"
 )
 
-// OAuthDAL is a DAL (data access layer) component for accessing OAuth tokens
-type OAuthDAL struct {
+// OAuthDAL provides methods for getting and storing OAuth access token pairs
+type OAuthDAL interface {
+	GetAccessTokenPairByID(ID string) (*models.AccessTokenPair, error)
+	GetAccessTokenPairByAccessToken(accessToken string) (*models.AccessTokenPair, error)
+	GetAccessTokenPairByRefreshToken(refreshToken string) (*models.AccessTokenPair, error)
+	InsertAccessTokenPair(tokenPair *models.AccessTokenPair) error
+	DeleteAccessTokenPair(tokenPair *models.AccessTokenPair) error
+}
+
+// PostgresOAuthDAL is a Postgres implementation of the OAuthDAL interface
+type PostgresOAuthDAL struct {
 	db              *sql.DB
 	tokenCache      *cache.Cache
 	accessMapCache  *cache.Cache
 	refreshMapCache *cache.Cache
 }
 
-// NewOAuthDAL returns a new OAuthDAL service using the provided config
-func NewOAuthDAL(config *models.Config) (*OAuthDAL, error) {
+// MustPostgresOAuthDAL either returns a valid PostgresOAuthDAL object or panics on error
+func MustPostgresOAuthDAL(config *models.Config) OAuthDAL {
+	d, err := NewPostgresOAuthDAL(config)
+	if err != nil {
+		panic(err)
+	}
+
+	return d
+}
+
+// NewPostgresOAuthDAL returns a new PostgresOAuthDAL service using the provided config
+func NewPostgresOAuthDAL(config *models.Config) (OAuthDAL, error) {
 	db, err := sql.Open("postgres", config.SQLConnectionString)
 	if err != nil {
 		return nil, err
@@ -31,7 +50,7 @@ func NewOAuthDAL(config *models.Config) (*OAuthDAL, error) {
 	expiration := time.Duration(config.RefreshTokenLifetime) * time.Second
 	cleanup := 2 * time.Duration(config.RefreshTokenLifetime) * time.Second
 
-	return &OAuthDAL{
+	return &PostgresOAuthDAL{
 		db:              db,
 		tokenCache:      cache.New(expiration, cleanup),
 		accessMapCache:  cache.New(expiration, cleanup),
@@ -40,7 +59,7 @@ func NewOAuthDAL(config *models.Config) (*OAuthDAL, error) {
 }
 
 // GetAccessTokenPairByID returns a pointer to the access token with the provided ID (if it exists)
-func (dal *OAuthDAL) GetAccessTokenPairByID(ID string) (*models.AccessTokenPair, error) {
+func (dal *PostgresOAuthDAL) GetAccessTokenPairByID(ID string) (*models.AccessTokenPair, error) {
 	// Check the cache first
 	if cached, found := dal.tokenCache.Get(ID); found {
 		return cached.(*models.AccessTokenPair), nil
@@ -51,7 +70,7 @@ func (dal *OAuthDAL) GetAccessTokenPairByID(ID string) (*models.AccessTokenPair,
 }
 
 // GetAccessTokenPairByAccessToken returns a pointer to the access token pair with the provided access token (if it exists)
-func (dal *OAuthDAL) GetAccessTokenPairByAccessToken(accessToken string) (*models.AccessTokenPair, error) {
+func (dal *PostgresOAuthDAL) GetAccessTokenPairByAccessToken(accessToken string) (*models.AccessTokenPair, error) {
 	// See if we can get the ID of the token pair from the cache
 	if cached, found := dal.accessMapCache.Get(accessToken); found {
 		return dal.GetAccessTokenPairByID(cached.(string))
@@ -62,7 +81,7 @@ func (dal *OAuthDAL) GetAccessTokenPairByAccessToken(accessToken string) (*model
 }
 
 // GetAccessTokenPairByRefreshToken returns a pointer to the access token pair with the provided refresh token (if it exists)
-func (dal *OAuthDAL) GetAccessTokenPairByRefreshToken(refreshToken string) (*models.AccessTokenPair, error) {
+func (dal *PostgresOAuthDAL) GetAccessTokenPairByRefreshToken(refreshToken string) (*models.AccessTokenPair, error) {
 	// See if we can get the ID of the token pair from the cache
 	if cached, found := dal.refreshMapCache.Get(refreshToken); found {
 		return dal.GetAccessTokenPairByID(cached.(string))
@@ -73,7 +92,7 @@ func (dal *OAuthDAL) GetAccessTokenPairByRefreshToken(refreshToken string) (*mod
 }
 
 // InsertAccessTokenPair inserts the provided access token pair in to the database and populates the cache
-func (dal *OAuthDAL) InsertAccessTokenPair(tokenPair *models.AccessTokenPair) error {
+func (dal *PostgresOAuthDAL) InsertAccessTokenPair(tokenPair *models.AccessTokenPair) error {
 	var userID sql.NullInt64
 	if tokenPair.UserID != "" {
 		userID.Valid = true
@@ -105,7 +124,7 @@ func (dal *OAuthDAL) InsertAccessTokenPair(tokenPair *models.AccessTokenPair) er
 }
 
 // DeleteAccessTokenPair removes an access token pair from the database & cache
-func (dal *OAuthDAL) DeleteAccessTokenPair(tokenPair *models.AccessTokenPair) error {
+func (dal *PostgresOAuthDAL) DeleteAccessTokenPair(tokenPair *models.AccessTokenPair) error {
 	// Remove from the database
 	if _, err := dal.db.Query(Queries.DeleteTokenPair, tokenPair.ID); err != nil {
 		return err
@@ -117,7 +136,7 @@ func (dal *OAuthDAL) DeleteAccessTokenPair(tokenPair *models.AccessTokenPair) er
 }
 
 // Gets an access token pair from the database, finding it using the specified query and search parameter
-func (dal *OAuthDAL) getFromDatabase(query, searchParam string) (*models.AccessTokenPair, error) {
+func (dal *PostgresOAuthDAL) getFromDatabase(query, searchParam string) (*models.AccessTokenPair, error) {
 	rows, err := dal.db.Query(query, searchParam)
 	if err != nil {
 		return nil, err
@@ -143,7 +162,7 @@ func (dal *OAuthDAL) getFromDatabase(query, searchParam string) (*models.AccessT
 	return result, nil
 }
 
-func (dal *OAuthDAL) populateCache(tokenPair *models.AccessTokenPair) {
+func (dal *PostgresOAuthDAL) populateCache(tokenPair *models.AccessTokenPair) {
 	// Add the pair itself to the cache
 	dal.tokenCache.Set(tokenPair.ID, tokenPair, cache.DefaultExpiration)
 
@@ -152,7 +171,7 @@ func (dal *OAuthDAL) populateCache(tokenPair *models.AccessTokenPair) {
 	dal.refreshMapCache.Set(tokenPair.RefreshToken, tokenPair.ID, cache.DefaultExpiration)
 }
 
-func (dal *OAuthDAL) deleteFromCache(tokenPair *models.AccessTokenPair) {
+func (dal *PostgresOAuthDAL) deleteFromCache(tokenPair *models.AccessTokenPair) {
 	// Delete from the token cache itself
 	dal.tokenCache.Delete(tokenPair.ID)
 

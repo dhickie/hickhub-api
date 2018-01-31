@@ -12,11 +12,11 @@ import (
 
 // AuthController handles requests to do with user authentication
 type AuthController struct {
-	authService *services.AuthService
+	authService services.AuthService
 }
 
 // NewAuthController returns a new auth controller using the given auth service
-func NewAuthController(authService *services.AuthService) AuthController {
+func NewAuthController(authService services.AuthService) AuthController {
 	return AuthController{
 		authService: authService,
 	}
@@ -141,7 +141,7 @@ func (c *AuthController) authCodeToken(w http.ResponseWriter, code, clientID, re
 	response := models.TokenResponse{
 		AccessToken:  tokenPair.AccessToken,
 		RefreshToken: tokenPair.RefreshToken,
-		ExpiresIn:    c.authService.AccessTokenLifetime,
+		ExpiresIn:    c.authService.GetAccessTokenLifetime(),
 		Scope:        authorisation.Scope,
 		TokenType:    "bearer",
 	}
@@ -172,7 +172,7 @@ func (c *AuthController) refreshTokenToken(w http.ResponseWriter, refreshToken s
 	response := models.TokenResponse{
 		AccessToken:  tokenPair.AccessToken,
 		RefreshToken: tokenPair.RefreshToken,
-		ExpiresIn:    c.authService.AccessTokenLifetime,
+		ExpiresIn:    c.authService.GetAccessTokenLifetime(),
 		Scope:        tokenPair.Scope,
 		TokenType:    "bearer",
 	}
@@ -192,7 +192,7 @@ func (c *AuthController) clientToken(w http.ResponseWriter, scope string) {
 	response := models.TokenResponse{
 		AccessToken:  tokenPair.AccessToken,
 		RefreshToken: tokenPair.RefreshToken,
-		ExpiresIn:    c.authService.AccessTokenLifetime,
+		ExpiresIn:    c.authService.GetAccessTokenLifetime(),
 		Scope:        tokenPair.Scope,
 		TokenType:    "bearer",
 	}
