@@ -64,8 +64,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
-	select {}
 }
 
 type userAuthMiddleware struct {
