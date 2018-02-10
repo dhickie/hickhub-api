@@ -78,6 +78,8 @@ const getUser = `
 SELECT id,
 	email,
 	pass_hash,
-	messaging_subject
+	messaging_subject,
+	security_question,
+	security_answer
 FROM users
 `

@@ -60,7 +60,7 @@ func main() {
 	r.HandleFunc("/user/messaging/request", userAuthMiddleware{"messaging", messagingController.Request}.Handle).Methods("POST")
 
 	// Listen for requests
-	err = http.ListenAndServe(fmt.Sprintf(":%v", config.APIPort), r)
+	err = http.ListenAndServe(fmt.Sprintf(":%v", config.APIPort), crossOriginMiddleware{r})
 	if err != nil {
 		panic(err)
 	}
@@ -106,4 +106,14 @@ func (m userAuthMiddleware) Handle(w http.ResponseWriter, r *http.Request) {
 
 	// All good, pass the associated user ID on to the handler
 	m.h(w, tokenPair.UserID, body)
+}
+
+type crossOriginMiddleware struct {
+	h http.Handler
+}
+
+func (m crossOriginMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Access-Control-Allow-Origin", "*")
+	w.Header().Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
+	m.h.ServeHTTP(w, r)
 }

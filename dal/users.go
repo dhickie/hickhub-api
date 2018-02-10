@@ -79,7 +79,9 @@ func (dal *PostgresUsersDAL) getFromDatabase(query, searchParam string) (*models
 		&result.ID,
 		&result.Email,
 		&result.PassHash,
-		&result.MessagingSubject)
+		&result.MessagingSubject,
+		&result.SecurityQuestion,
+		&result.SecurityAnswer)
 	if !found || err != nil {
 		return nil, err
 	}

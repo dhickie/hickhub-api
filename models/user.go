@@ -6,4 +6,6 @@ type User struct {
 	Email            string
 	PassHash         string
 	MessagingSubject string
+	SecurityQuestion string
+	SecurityAnswer   string
 }
