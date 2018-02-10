@@ -14,7 +14,7 @@ type TokenRequest struct {
 	GrantType         string `schema:"grant_type"`
 	ClientID          string `schema:"client_id"`
 	ClientSecret      string `schema:"client_secret"`
-	RedirectURL       string `schema:"redirect_url"`
+	RedirectURI       string `schema:"redirect_uri"`
 	AuthorisationCode string `schema:"code"`
 	RefreshToken      string `schema:"refresh_token"`
 	Scope             string `schema:"scope"`

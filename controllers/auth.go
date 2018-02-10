@@ -105,7 +105,7 @@ func (c *AuthController) Token(w http.ResponseWriter, r *http.Request) {
 
 	// Check what sort of grant the request is for, and take appropriate action
 	if request.GrantType == models.GrantTypeAuthCode {
-		c.authCodeToken(w, request.AuthorisationCode, request.ClientID, request.RedirectURL)
+		c.authCodeToken(w, request.AuthorisationCode, request.ClientID, request.RedirectURI)
 		return
 	} else if request.GrantType == models.GrantTypeRefreshToken {
 		c.refreshTokenToken(w, request.RefreshToken)
@@ -119,9 +119,9 @@ func (c *AuthController) Token(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func (c *AuthController) authCodeToken(w http.ResponseWriter, code, clientID, redirectURL string) {
+func (c *AuthController) authCodeToken(w http.ResponseWriter, code, clientID, redirectURI string) {
 	// Validate the provided code
-	authorisation, err := c.authService.ValidateAuthCode(code, clientID, redirectURL)
+	authorisation, err := c.authService.ValidateAuthCode(code, clientID, redirectURI)
 	if err != nil {
 		utils.HTTP.RespondInternalServerError(w, err.Error())
 		return

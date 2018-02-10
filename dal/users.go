@@ -2,6 +2,7 @@ package dal
 
 import (
 	"database/sql"
+	"strings"
 
 	"github.com/dhickie/hickhub-api/models"
 	"github.com/dhickie/hickhub-api/utils"
@@ -57,13 +58,16 @@ func (dal *PostgresUsersDAL) GetUserByID(ID string) (*models.User, error) {
 
 // GetUserByEmail returns a pointer to the user with the specified email
 func (dal *PostgresUsersDAL) GetUserByEmail(email string) (*models.User, error) {
+	// Convert the email to lower case first
+	lowerEmail := strings.ToLower(email)
+
 	// Check the cache
-	if val, ok := dal.emailMapCache[email]; ok {
+	if val, ok := dal.emailMapCache[lowerEmail]; ok {
 		return dal.GetUserByID(val)
 	}
 
 	// Get from the database instead
-	return dal.getFromDatabase(Queries.GetUserByEmail, email)
+	return dal.getFromDatabase(Queries.GetUserByEmail, lowerEmail)
 }
 
 func (dal *PostgresUsersDAL) getFromDatabase(query, searchParam string) (*models.User, error) {

@@ -23,7 +23,7 @@ type AuthService interface {
 	ValidateClientCredentials(clientID, clientSecret, grantType string) (bool, error)
 	ValidatePassword(email, password string) (bool, error)
 	GenerateAuthCode(email, scope, clientID, redirectURI string) (*string, error)
-	ValidateAuthCode(code, clientID, redirectURL string) (*models.Authorisation, error)
+	ValidateAuthCode(code, clientID, redirectURI string) (*models.Authorisation, error)
 	ValidateRefreshToken(refreshToken string) (bool, error)
 	GenerateAccessTokenPair(userID, scope string) (*models.AccessTokenPair, error)
 	RefreshAccessTokenPair(refreshToken string) (*models.AccessTokenPair, error)
@@ -113,6 +113,11 @@ func (s *HickHubAuthService) ValidatePassword(email, password string) (bool, err
 		return false, err
 	}
 
+	// If the user doesn't exist, return false with no error
+	if user == nil {
+		return false, nil
+	}
+
 	// Validate the provided password against the hash
 	if err = bcrypt.CompareHashAndPassword([]byte(user.PassHash), []byte(password)); err != nil {
 		// Invalid password
@@ -139,7 +144,7 @@ func (s *HickHubAuthService) GenerateAuthCode(email, scope, clientID, redirectUR
 
 // ValidateAuthCode validates the provided code against the provided client ID and redirect URI. If valid,
 // it returns the decoded authorisation. Otherwise, it returns nil
-func (s *HickHubAuthService) ValidateAuthCode(code, clientID, redirectURL string) (*models.Authorisation, error) {
+func (s *HickHubAuthService) ValidateAuthCode(code, clientID, redirectURI string) (*models.Authorisation, error) {
 	// Decrypt the code
 	decrypted, err := s.decryptCode(code)
 	if err != nil || decrypted == nil {
@@ -168,8 +173,8 @@ func (s *HickHubAuthService) ValidateAuthCode(code, clientID, redirectURL string
 	}
 
 	// Redirect URL
-	codeRedirectURL := components[4]
-	if codeRedirectURL != redirectURL {
+	codeRedirectURI := components[4]
+	if codeRedirectURI != redirectURI {
 		return nil, nil
 	}
 
