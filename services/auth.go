@@ -21,7 +21,10 @@ import (
 type AuthService interface {
 	ValidateClientRedirect(clientID, redirectURI string) (bool, error)
 	ValidateClientCredentials(clientID, clientSecret, grantType string) (bool, error)
-	ValidatePassword(email, password string) (bool, error)
+	HashPassword(password string) (string, error)
+	ValidatePasswordByEmail(email, password string) (bool, error)
+	ValidatePasswordByID(userID, password string) (bool, error)
+	ValidatePassword(passHash, password string) bool
 	GenerateAuthCode(email, scope, clientID, redirectURI string) (*string, error)
 	ValidateAuthCode(code, clientID, redirectURI string) (*models.Authorisation, error)
 	ValidateRefreshToken(refreshToken string) (bool, error)
@@ -106,9 +109,15 @@ func (s *HickHubAuthService) ValidateClientCredentials(clientID, clientSecret, g
 	return true, nil
 }
 
-// ValidatePassword validates that the give email/password combination is correct
-func (s *HickHubAuthService) ValidatePassword(email, password string) (bool, error) {
-	// Get the user ID
+// HashPassword hashes a given password, and returns the result
+func (s *HickHubAuthService) HashPassword(password string) (string, error) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	return string(hash), err
+}
+
+// ValidatePasswordByEmail validates a user's password, finding the user by their email
+func (s *HickHubAuthService) ValidatePasswordByEmail(email, password string) (bool, error) {
+	// Get the user
 	user, err := s.userDAL.GetUserByEmail(email)
 	if err != nil {
 		return false, err
@@ -119,14 +128,35 @@ func (s *HickHubAuthService) ValidatePassword(email, password string) (bool, err
 		return false, nil
 	}
 
-	// Validate the provided password against the hash
-	if err = bcrypt.CompareHashAndPassword([]byte(user.PassHash), []byte(password)); err != nil {
-		// Invalid password
+	return s.ValidatePassword(user.PassHash, password), nil
+}
+
+// ValidatePasswordByID validates a user's password, finding the user by their ID
+func (s *HickHubAuthService) ValidatePasswordByID(userID, password string) (bool, error) {
+	// Get the user
+	user, err := s.userDAL.GetUserByID(userID)
+	if err != nil {
+		return false, err
+	}
+
+	// If the user doesn't exist, return false with no error
+	if user == nil {
 		return false, nil
 	}
 
+	return s.ValidatePassword(user.PassHash, password), nil
+}
+
+// ValidatePassword validates that the given password matches the given password hash
+func (s *HickHubAuthService) ValidatePassword(passHash, password string) bool {
+	// Validate the provided password against the hash
+	if err := bcrypt.CompareHashAndPassword([]byte(passHash), []byte(password)); err != nil {
+		// Invalid password
+		return false
+	}
+
 	// Valid password
-	return true, nil
+	return true
 }
 
 // GenerateAuthCode generates a new auth code for the given email address and scope

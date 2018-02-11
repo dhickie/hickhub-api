@@ -12,6 +12,7 @@ var Queries = queriesStruct{
 	GetUserByEmail:             getUserByEmail,
 	InsertUser:                 insertUser,
 	UpdateEmail:                updateEmail,
+	UpdatePassword:             updatePassword,
 }
 
 type queriesStruct struct {
@@ -25,6 +26,7 @@ type queriesStruct struct {
 	GetUserByEmail             string
 	InsertUser                 string
 	UpdateEmail                string
+	UpdatePassword             string
 }
 
 // Getting OAuth Tokens
@@ -109,5 +111,11 @@ RETURNING id
 const updateEmail = `
 UPDATE users
 SET email = $1
+WHERE id = $2
+`
+
+const updatePassword = `
+UPDATE users
+SET pass_hash = $1
 WHERE id = $2
 `

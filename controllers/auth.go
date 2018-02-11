@@ -43,7 +43,7 @@ func (c *AuthController) Authorise(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate the email/password combination
-	valid, err = c.authService.ValidatePassword(body.Email, body.Password)
+	valid, err = c.authService.ValidatePasswordByEmail(body.Email, body.Password)
 	if err != nil {
 		utils.HTTP.RespondInternalServerError(w, err.Error())
 		return

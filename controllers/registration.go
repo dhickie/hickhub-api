@@ -6,8 +6,6 @@ import (
 
 	"github.com/dhickie/hickhub-api/services"
 
-	"golang.org/x/crypto/bcrypt"
-
 	"github.com/dhickie/hickhub-api/dal"
 	"github.com/dhickie/hickhub-api/models"
 	"github.com/dhickie/hickhub-api/utils"
@@ -54,7 +52,7 @@ func (c *RegistrationController) RegisterNewUser(w http.ResponseWriter, vars map
 	}
 
 	// Hash the password
-	passHash, err := bcrypt.GenerateFromPassword([]byte(request.Password), bcrypt.DefaultCost)
+	passHash, err := c.authService.HashPassword(request.Password)
 	if err != nil {
 		utils.HTTP.RespondInternalServerError(w, err.Error())
 		return
@@ -70,7 +68,7 @@ func (c *RegistrationController) RegisterNewUser(w http.ResponseWriter, vars map
 	// Add the user to the database
 	user := &models.User{
 		Email:            request.Email,
-		PassHash:         string(passHash),
+		PassHash:         passHash,
 		MessagingSubject: subject,
 		SecurityQuestion: request.SecurityQuestion,
 		SecurityAnswer:   request.SecurityAnswer,

@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/dhickie/hickhub-api/services"
+
 	"github.com/dhickie/hickhub-api/dal"
 	"github.com/dhickie/hickhub-api/models"
 	"github.com/dhickie/hickhub-api/utils"
@@ -12,17 +14,20 @@ import (
 const (
 	invalidEmailFormat = "Invalid email format"
 	emailTaken         = "Email address is already taken"
+	incorrectPassword  = "Incorrect password provided"
 )
 
 // UserController provides access to endpoints which provide information about a user
 type UserController struct {
-	usersDAL dal.UsersDAL
+	usersDAL    dal.UsersDAL
+	authService services.AuthService
 }
 
 // NewUserController creates a new user controller using the provided user DAL service
-func NewUserController(usersDAL dal.UsersDAL) *UserController {
+func NewUserController(usersDAL dal.UsersDAL, authService services.AuthService) *UserController {
 	return &UserController{
-		usersDAL: usersDAL,
+		usersDAL:    usersDAL,
+		authService: authService,
 	}
 }
 
@@ -75,5 +80,39 @@ func (c *UserController) ChangeEmail(w http.ResponseWriter, userID string, body 
 	err = c.usersDAL.UpdateEmail(userID, request.NewEmail)
 	if err != nil {
 		utils.HTTP.RespondInternalServerError(w, err.Error())
+	}
+}
+
+// ChangePassword changes the password for the given user ID to a new value
+func (c *UserController) ChangePassword(w http.ResponseWriter, userID string, body []byte) {
+	// Unmarshal the request
+	request := new(models.ChangePasswordRequest)
+	if err := json.Unmarshal(body, request); err != nil {
+		utils.HTTP.RespondInternalServerError(w, err.Error())
+		return
+	}
+
+	// Validate that the provided current password is correct
+	valid, err := c.authService.ValidatePasswordByID(userID, request.CurrentPassword)
+	if err != nil {
+		utils.HTTP.RespondInternalServerError(w, err.Error())
+		return
+	}
+	if !valid {
+		utils.HTTP.RespondBadRequest(w, incorrectPassword)
+		return
+	}
+
+	// Set the new password
+	hash, err := c.authService.HashPassword(request.NewPassword)
+	if err != nil {
+		utils.HTTP.RespondInternalServerError(w, err.Error())
+		return
+	}
+
+	err = c.usersDAL.UpdatePassword(userID, hash)
+	if err != nil {
+		utils.HTTP.RespondInternalServerError(w, err.Error())
+		return
 	}
 }

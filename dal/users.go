@@ -13,6 +13,7 @@ type UsersDAL interface {
 	GetUserByID(ID string) (*models.User, error)
 	GetUserByEmail(email string) (*models.User, error)
 	UpdateEmail(userID, newEmail string) error
+	UpdatePassword(userID, passHash string) error
 	InsertUser(user *models.User) error
 }
 
@@ -121,6 +122,23 @@ func (dal *PostgresUsersDAL) UpdateEmail(userID, newEmail string) error {
 	delete(dal.emailMapCache, user.Email)
 	user.Email = lowerEmail
 	dal.populateCache(user)
+	return nil
+}
+
+// UpdatePassword updates the password for the given user ID to the provided Hash
+func (dal *PostgresUsersDAL) UpdatePassword(userID, passHash string) error {
+	// Update the database
+	_, err := dal.db.Query(Queries.UpdatePassword,
+		passHash,
+		userID)
+	if err != nil {
+		return err
+	}
+
+	// Update the cache if this user is in there
+	if user, ok := dal.userCache[userID]; ok {
+		user.PassHash = passHash
+	}
 	return nil
 }
 

@@ -32,3 +32,9 @@ type NewUserRequest struct {
 type ChangeEmailRequest struct {
 	NewEmail string `json:"new_email"`
 }
+
+// ChangePasswordRequest is sent in the body of requests to change a user's password
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password"`
+	NewPassword     string `json:"new_password"`
+}
