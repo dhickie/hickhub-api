@@ -27,3 +27,8 @@ type NewUserRequest struct {
 	SecurityQuestion string `json:"security_question"`
 	SecurityAnswer   string `json:"security_answer"`
 }
+
+// ChangeEmailRequest is sent in the body of requests to change a user's email address
+type ChangeEmailRequest struct {
+	NewEmail string `json:"new_email"`
+}

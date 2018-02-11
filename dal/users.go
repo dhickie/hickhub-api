@@ -12,6 +12,7 @@ import (
 type UsersDAL interface {
 	GetUserByID(ID string) (*models.User, error)
 	GetUserByEmail(email string) (*models.User, error)
+	UpdateEmail(userID, newEmail string) error
 	InsertUser(user *models.User) error
 }
 
@@ -95,6 +96,30 @@ func (dal *PostgresUsersDAL) InsertUser(user *models.User) error {
 	user.ID = id
 
 	// Populate the cache
+	dal.populateCache(user)
+	return nil
+}
+
+// UpdateEmail updates the email for the provided User ID to the provided value
+func (dal *PostgresUsersDAL) UpdateEmail(userID, newEmail string) error {
+	// Get the current user object
+	user, err := dal.GetUserByID(userID)
+	if err != nil {
+		return err
+	}
+
+	// Update the email address on the user
+	lowerEmail := strings.ToLower(newEmail)
+	_, err = dal.db.Query(Queries.UpdateEmail,
+		lowerEmail,
+		userID)
+	if err != nil {
+		return err
+	}
+
+	// Update the cache for the user
+	delete(dal.emailMapCache, user.Email)
+	user.Email = lowerEmail
 	dal.populateCache(user)
 	return nil
 }

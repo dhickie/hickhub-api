@@ -10,7 +10,8 @@ var Queries = queriesStruct{
 	GetClientByID:              getClientByID,
 	GetUserByID:                getUserByID,
 	GetUserByEmail:             getUserByEmail,
-	InsertUser: insertUser,
+	InsertUser:                 insertUser,
+	UpdateEmail:                updateEmail,
 }
 
 type queriesStruct struct {
@@ -22,7 +23,8 @@ type queriesStruct struct {
 	GetClientByID              string
 	GetUserByID                string
 	GetUserByEmail             string
-	InsertUser string
+	InsertUser                 string
+	UpdateEmail                string
 }
 
 // Getting OAuth Tokens
@@ -86,7 +88,7 @@ SELECT id,
 FROM users
 `
 
-// Inserting users
+// Inserting/Modifying users
 const insertUser = `
 INSERT INTO users (
 	email,
@@ -102,4 +104,10 @@ INSERT INTO users (
 	$5
 )
 RETURNING id
+`
+
+const updateEmail = `
+UPDATE users
+SET email = $1
+WHERE id = $2
 `

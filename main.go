@@ -59,6 +59,7 @@ func main() {
 
 	r.HandleFunc("/user/messaging/subject", userAuthMiddleware{"messaging", userController.Subject}.Handle).Methods("GET")
 	r.HandleFunc("/user/messaging/request", userAuthMiddleware{"messaging", messagingController.Request}.Handle).Methods("POST")
+	r.HandleFunc("/user/email", userAuthMiddleware{"user", userController.ChangeEmail}.Handle).Methods("POST")
 
 	r.HandleFunc("/registration/user", confidentialAuthMiddleware{"admin", registrationController.RegisterNewUser}.Handle).Methods("POST")
 	r.HandleFunc("/registration/email/{email}/available", confidentialAuthMiddleware{"admin", registrationController.GetEmailAvailability}.Handle).Methods("GET")

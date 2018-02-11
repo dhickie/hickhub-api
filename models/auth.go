@@ -7,7 +7,7 @@ import (
 // Scopes define what actions and data are available to an authorised client application
 const (
 	ScopeMessaging = "messaging" // Provides access to messaging between cloud and HickHub
-	ScopeUser      = "user"      // Provides access to user information
+	ScopeUser      = "user"      // Provides permission to access and update user information
 	ScopeAdmin     = "admin"     // Provides access to EVERYTHING
 )
 
