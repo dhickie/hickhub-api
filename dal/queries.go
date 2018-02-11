@@ -10,6 +10,7 @@ var Queries = queriesStruct{
 	GetClientByID:              getClientByID,
 	GetUserByID:                getUserByID,
 	GetUserByEmail:             getUserByEmail,
+	InsertUser: insertUser,
 }
 
 type queriesStruct struct {
@@ -21,6 +22,7 @@ type queriesStruct struct {
 	GetClientByID              string
 	GetUserByID                string
 	GetUserByEmail             string
+	InsertUser string
 }
 
 // Getting OAuth Tokens
@@ -40,14 +42,14 @@ FROM oauthtokens
 
 // Inserting/Removing OAuth tokens
 const insertTokenPair = `
-INSERT INTO oauthtokens(
+INSERT INTO oauthtokens (
 	access_token,
 	refresh_token,
 	access_token_expiry,
 	refresh_token_expiry,
 	user_id,
 	scope)
-VALUES(
+VALUES (
 	$1,
 	$2,
 	$3,
@@ -82,4 +84,22 @@ SELECT id,
 	security_question,
 	security_answer
 FROM users
+`
+
+// Inserting users
+const insertUser = `
+INSERT INTO users (
+	email,
+	pass_hash,
+	messaging_subject,
+	security_question,
+	security_answer
+) VALUES (
+	$1,
+	$2,
+	$3,
+	$4,
+	$5
+)
+RETURNING id
 `

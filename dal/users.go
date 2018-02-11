@@ -12,6 +12,7 @@ import (
 type UsersDAL interface {
 	GetUserByID(ID string) (*models.User, error)
 	GetUserByEmail(email string) (*models.User, error)
+	InsertUser(user *models.User) error
 }
 
 // PostgresUsersDAL is a Postgres implementation of the UsersDAL interface
@@ -68,6 +69,34 @@ func (dal *PostgresUsersDAL) GetUserByEmail(email string) (*models.User, error) 
 
 	// Get from the database instead
 	return dal.getFromDatabase(Queries.GetUserByEmail, lowerEmail)
+}
+
+// InsertUser inserts the provided user to the database and populates the user's ID
+func (dal *PostgresUsersDAL) InsertUser(user *models.User) error {
+	// Convert the email to lower case for case insensitivity
+	lowerEmail := strings.ToLower(user.Email)
+
+	// Insert in to the database, and get the ID of the user
+	rows, err := dal.db.Query(Queries.InsertUser,
+		lowerEmail,
+		user.PassHash,
+		user.MessagingSubject,
+		user.SecurityQuestion,
+		user.SecurityAnswer)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	// Get the ID, and add it to the user
+	var id string
+	rows.Next()
+	rows.Scan(&id)
+	user.ID = id
+
+	// Populate the cache
+	dal.populateCache(user)
+	return nil
 }
 
 func (dal *PostgresUsersDAL) getFromDatabase(query, searchParam string) (*models.User, error) {

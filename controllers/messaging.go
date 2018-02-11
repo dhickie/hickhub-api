@@ -15,8 +15,8 @@ type MessagingController struct {
 }
 
 // NewMessagingController returns a new instance of the messaging controller
-func NewMessagingController(dal dal.UsersDAL, messagingService services.MessagingService) MessagingController {
-	return MessagingController{
+func NewMessagingController(dal dal.UsersDAL, messagingService services.MessagingService) *MessagingController {
+	return &MessagingController{
 		messagingService: messagingService,
 		usersDAL:         dal,
 	}

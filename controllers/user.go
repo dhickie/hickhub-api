@@ -14,8 +14,8 @@ type UserController struct {
 }
 
 // NewUserController creates a new user controller using the provided user DAL service
-func NewUserController(usersDAL dal.UsersDAL) UserController {
-	return UserController{
+func NewUserController(usersDAL dal.UsersDAL) *UserController {
+	return &UserController{
 		usersDAL: usersDAL,
 	}
 }

@@ -50,6 +50,7 @@ func main() {
 	authController := controllers.NewAuthController(authService)
 	userController := controllers.NewUserController(usersDAL)
 	messagingController := controllers.NewMessagingController(usersDAL, messagingService)
+	registrationController := controllers.NewRegistrationController(usersDAL, authService)
 
 	// Setup routes
 	r := mux.NewRouter()
@@ -58,6 +59,9 @@ func main() {
 
 	r.HandleFunc("/user/messaging/subject", userAuthMiddleware{"messaging", userController.Subject}.Handle).Methods("GET")
 	r.HandleFunc("/user/messaging/request", userAuthMiddleware{"messaging", messagingController.Request}.Handle).Methods("POST")
+
+	r.HandleFunc("/registration/user", confidentialAuthMiddleware{"admin", registrationController.RegisterNewUser}.Handle).Methods("POST")
+	r.HandleFunc("/registration/email/{email}/available", confidentialAuthMiddleware{"admin", registrationController.GetEmailAvailability}.Handle).Methods("GET")
 
 	// Listen for requests
 	err = http.ListenAndServe(fmt.Sprintf(":%v", config.APIPort), crossOriginMiddleware{r})
@@ -72,40 +76,23 @@ type userAuthMiddleware struct {
 }
 
 func (m userAuthMiddleware) Handle(w http.ResponseWriter, r *http.Request) {
-	// Verify that the request has a valid customer access token
-	token, found := utils.HTTP.GetBearerToken(r)
-	if !found {
-		utils.HTTP.RespondUnauthorized(w)
-		return
+	valid, body, userID := validateAccessToken(w, r, m.requiredScope)
+	if valid {
+		// All good, pass the associated user ID on to the handler
+		m.h(w, userID, body)
 	}
+}
 
-	tokenPair, err := authDAL.GetAccessTokenPairByAccessToken(token)
-	if err != nil {
-		utils.HTTP.RespondInternalServerError(w, err.Error())
-		return
+type confidentialAuthMiddleware struct {
+	requiredScope string
+	h             func(http.ResponseWriter, map[string]string, []byte)
+}
+
+func (m confidentialAuthMiddleware) Handle(w http.ResponseWriter, r *http.Request) {
+	valid, body, _ := validateAccessToken(w, r, m.requiredScope)
+	if valid {
+		m.h(w, mux.Vars(r), body)
 	}
-
-	if tokenPair == nil {
-		utils.HTTP.RespondUnauthorized(w)
-		return
-	}
-
-	// Verify that the token is valid for the required scope, and hasn't expired
-	if tokenPair.Scope != m.requiredScope || tokenPair.AccessTokenExpiry.Before(time.Now()) {
-		utils.HTTP.RespondForbidden(w)
-		return
-	}
-
-	// Get the body of the request
-	body, err := ioutil.ReadAll(r.Body)
-	defer r.Body.Close()
-	if err != nil {
-		utils.HTTP.RespondInternalServerError(w, err.Error())
-		return
-	}
-
-	// All good, pass the associated user ID on to the handler
-	m.h(w, tokenPair.UserID, body)
 }
 
 type crossOriginMiddleware struct {
@@ -116,4 +103,41 @@ func (m crossOriginMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	w.Header().Add("Access-Control-Allow-Origin", "*")
 	w.Header().Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
 	m.h.ServeHTTP(w, r)
+}
+
+// Helper function to validate the access token provided with requests to the API
+func validateAccessToken(w http.ResponseWriter, r *http.Request, requiredScope string) (bool, []byte, string) {
+	// Verify that the request has an access token in it
+	token, found := utils.HTTP.GetBearerToken(r)
+	if !found {
+		utils.HTTP.RespondUnauthorized(w)
+		return false, nil, ""
+	}
+
+	tokenPair, err := authDAL.GetAccessTokenPairByAccessToken(token)
+	if err != nil {
+		utils.HTTP.RespondInternalServerError(w, err.Error())
+		return false, nil, ""
+	}
+
+	if tokenPair == nil {
+		utils.HTTP.RespondUnauthorized(w)
+		return false, nil, ""
+	}
+
+	// Verify that the token is valid for the required scope, and hasn't expired
+	if tokenPair.Scope != requiredScope || tokenPair.AccessTokenExpiry.Before(time.Now()) {
+		utils.HTTP.RespondForbidden(w)
+		return false, nil, ""
+	}
+
+	// Get the body of the request
+	body, err := ioutil.ReadAll(r.Body)
+	defer r.Body.Close()
+	if err != nil {
+		utils.HTTP.RespondInternalServerError(w, err.Error())
+		return false, nil, ""
+	}
+
+	return true, body, tokenPair.UserID
 }

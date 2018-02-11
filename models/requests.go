@@ -19,3 +19,11 @@ type TokenRequest struct {
 	RefreshToken      string `schema:"refresh_token"`
 	Scope             string `schema:"scope"`
 }
+
+// NewUserRequest is sent in the body of requests to register a new user
+type NewUserRequest struct {
+	Email            string `json:"email"`
+	Password         string `json:"password"`
+	SecurityQuestion string `json:"security_question"`
+	SecurityAnswer   string `json:"security_answer"`
+}

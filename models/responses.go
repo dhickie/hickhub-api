@@ -18,3 +18,14 @@ type TokenResponse struct {
 type SubjectResponse struct {
 	Subject string `json:"subject"`
 }
+
+// NewUserResponse is returned after the successful creation of a new user
+type NewUserResponse struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+}
+
+// EmailAvailabilityResponse is returned when checking whether an email address is available
+type EmailAvailabilityResponse struct {
+	EmailAvailable bool `json:"email_available"`
+}

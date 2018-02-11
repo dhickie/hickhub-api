@@ -16,8 +16,8 @@ type AuthController struct {
 }
 
 // NewAuthController returns a new auth controller using the given auth service
-func NewAuthController(authService services.AuthService) AuthController {
-	return AuthController{
+func NewAuthController(authService services.AuthService) *AuthController {
+	return &AuthController{
 		authService: authService,
 	}
 }
@@ -116,7 +116,6 @@ func (c *AuthController) Token(w http.ResponseWriter, r *http.Request) {
 	}
 
 	utils.HTTP.RespondBadRequest(w, "Invalid grant type")
-	return
 }
 
 func (c *AuthController) authCodeToken(w http.ResponseWriter, code, clientID, redirectURI string) {
@@ -147,7 +146,6 @@ func (c *AuthController) authCodeToken(w http.ResponseWriter, code, clientID, re
 	}
 
 	utils.HTTP.RespondOK(w, response)
-	return
 }
 
 func (c *AuthController) refreshTokenToken(w http.ResponseWriter, refreshToken string) {
@@ -178,7 +176,6 @@ func (c *AuthController) refreshTokenToken(w http.ResponseWriter, refreshToken s
 	}
 
 	utils.HTTP.RespondOK(w, response)
-	return
 }
 
 func (c *AuthController) clientToken(w http.ResponseWriter, scope string) {
@@ -198,5 +195,4 @@ func (c *AuthController) clientToken(w http.ResponseWriter, scope string) {
 	}
 
 	utils.HTTP.RespondOK(w, response)
-	return
 }

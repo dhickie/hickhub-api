@@ -6,8 +6,9 @@ import (
 
 // Scopes define what actions and data are available to an authorised client application
 const (
-	ScopeMessaging = "messaging"
-	ScopeAdmin     = "admin"
+	ScopeMessaging = "messaging" // Provides access to messaging between cloud and HickHub
+	ScopeUser      = "user"      // Provides access to user information
+	ScopeAdmin     = "admin"     // Provides access to EVERYTHING
 )
 
 // Client types identify what sort of client is trying to authenticate
