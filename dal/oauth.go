@@ -9,6 +9,7 @@ import (
 	_ "github.com/lib/pq"
 
 	"github.com/dhickie/hickhub-api/models"
+	"github.com/dhickie/hickhub-api/models/enums"
 	"github.com/dhickie/hickhub-api/utils"
 	"github.com/patrickmn/go-cache"
 )
@@ -99,6 +100,9 @@ func (dal *PostgresOAuthDAL) InsertAccessTokenPair(tokenPair *models.AccessToken
 		userID.Int64, _ = strconv.ParseInt(tokenPair.UserID, 10, 64)
 	}
 
+	// Convert the scopes to a string
+	joinedScope := utils.Auth.JoinScopes(tokenPair.Scopes)
+
 	// Add it to the database, and get the ID of the resulting row back
 	rows, err := dal.db.Query(Queries.InsertTokenPair,
 		tokenPair.AccessToken,
@@ -106,7 +110,8 @@ func (dal *PostgresOAuthDAL) InsertAccessTokenPair(tokenPair *models.AccessToken
 		tokenPair.AccessTokenExpiry,
 		tokenPair.RefreshTokenExpiry,
 		userID,
-		tokenPair.Scope)
+		joinedScope,
+		tokenPair.Type.String())
 	if err != nil {
 		return err
 	}
@@ -145,6 +150,8 @@ func (dal *PostgresOAuthDAL) getFromDatabase(query, searchParam string) (*models
 
 	// Get the result, if there is one
 	result := new(models.AccessTokenPair)
+	var joinedScopes string
+	var tokenType string
 	found, err := utils.SQL.GetSingle(rows,
 		&result.ID,
 		&result.AccessToken,
@@ -152,10 +159,15 @@ func (dal *PostgresOAuthDAL) getFromDatabase(query, searchParam string) (*models
 		&result.AccessTokenExpiry,
 		&result.RefreshTokenExpiry,
 		&result.UserID,
-		&result.Scope)
+		&joinedScopes,
+		&tokenType)
 	if !found || err != nil {
 		return nil, err
 	}
+
+	// Convert the scopes
+	result.Scopes, _ = utils.Auth.SplitScopes(joinedScopes)
+	result.Type, _ = enums.ParseTokenType(tokenType)
 
 	// Populate the cache and return the result
 	dal.populateCache(result)

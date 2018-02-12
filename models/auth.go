@@ -2,19 +2,8 @@ package models
 
 import (
 	"time"
-)
 
-// Scopes define what actions and data are available to an authorised client application
-const (
-	ScopeMessaging = "messaging" // Provides access to messaging between cloud and HickHub
-	ScopeUser      = "user"      // Provides permission to access and update user information
-	ScopeAdmin     = "admin"     // Provides access to EVERYTHING
-)
-
-// Client types identify what sort of client is trying to authenticate
-const (
-	ClientTypePublic       = "public"
-	ClientTypeConfidential = "confidential"
+	"github.com/dhickie/hickhub-api/models/enums"
 )
 
 // Grant types identify the type of auth grant being requested
@@ -32,14 +21,15 @@ type AccessTokenPair struct {
 	AccessTokenExpiry  time.Time
 	RefreshTokenExpiry time.Time
 	UserID             string
-	Scope              string
+	Scopes             []enums.Scope
+	Type               enums.TokenType
 }
 
 // Client represents an OAuth client
 type Client struct {
 	ID           string
 	Secret       string
-	Type         string
+	Type         enums.ClientType
 	RedirectURIs []string
 }
 
@@ -47,7 +37,7 @@ type Client struct {
 type Authorisation struct {
 	UserID      string
 	Expiry      time.Time
-	Scope       string
+	Scopes      []enums.Scope
 	ClientID    string
 	RedirectURL string
 }

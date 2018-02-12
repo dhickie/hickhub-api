@@ -8,6 +8,7 @@ import (
 	_ "github.com/lib/pq"
 
 	"github.com/dhickie/hickhub-api/models"
+	"github.com/dhickie/hickhub-api/models/enums"
 	"github.com/dhickie/hickhub-api/utils"
 )
 
@@ -71,7 +72,8 @@ func (dal *PostgresClientsDAL) GetClientByID(ID string) (*models.Client, error) 
 	result := new(models.Client)
 	result.ID = id
 	result.Secret = secret
-	result.Type = clientType
+	eClientType, _ := enums.ParseClientType(clientType)
+	result.Type = eClientType
 
 	if uris.Valid {
 		result.RedirectURIs = strings.Split(uris.String, ";")

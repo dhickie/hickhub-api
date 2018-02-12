@@ -40,7 +40,8 @@ SELECT id,
 	access_token_expiry,
 	refresh_token_expiry,
 	user_id,
-	scope
+	scope,
+	type
 FROM oauthtokens
 `
 
@@ -52,14 +53,16 @@ INSERT INTO oauthtokens (
 	access_token_expiry,
 	refresh_token_expiry,
 	user_id,
-	scope)
+	scope,
+	type)
 VALUES (
 	$1,
 	$2,
 	$3,
 	$4,
 	$5,
-	$6)
+	$6,
+	$7)
 RETURNING id
 `
 const deleteTokenPair = `

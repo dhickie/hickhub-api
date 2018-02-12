@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/dhickie/hickhub-api/dal"
+	"github.com/dhickie/hickhub-api/models/enums"
 	"github.com/dhickie/hickhub-api/utils"
 
 	"github.com/dhickie/hickhub-api/controllers"
@@ -57,13 +58,13 @@ func main() {
 	r.HandleFunc("/oauth/authorize", authController.Authorise).Methods("POST")
 	r.HandleFunc("/oauth/token", authController.Token).Methods("POST")
 
-	r.HandleFunc("/user/messaging/subject", userAuthMiddleware{"messaging", userController.Subject}.Handle).Methods("GET")
-	r.HandleFunc("/user/messaging/request", userAuthMiddleware{"messaging", messagingController.Request}.Handle).Methods("POST")
-	r.HandleFunc("/user/email", userAuthMiddleware{"user", userController.ChangeEmail}.Handle).Methods("POST")
-	r.HandleFunc("/user/password", userAuthMiddleware{"user", userController.ChangePassword}.Handle).Methods("POST")
+	r.HandleFunc("/user/messaging/subject", userAuthMiddleware{enums.ScopeMessaging, userController.Subject}.Handle).Methods("GET")
+	r.HandleFunc("/user/messaging/request", userAuthMiddleware{enums.ScopeMessaging, messagingController.Request}.Handle).Methods("POST")
+	r.HandleFunc("/user/email", userAuthMiddleware{enums.ScopeUser, userController.ChangeEmail}.Handle).Methods("POST")
+	r.HandleFunc("/user/password", userAuthMiddleware{enums.ScopeUser, userController.ChangePassword}.Handle).Methods("POST")
 
-	r.HandleFunc("/registration/user", confidentialAuthMiddleware{"admin", registrationController.RegisterNewUser}.Handle).Methods("POST")
-	r.HandleFunc("/registration/email/{email}/available", confidentialAuthMiddleware{"admin", registrationController.GetEmailAvailability}.Handle).Methods("GET")
+	r.HandleFunc("/registration/user", confidentialAuthMiddleware{enums.ScopeAdmin, registrationController.RegisterNewUser}.Handle).Methods("POST")
+	r.HandleFunc("/registration/email/{email}/available", confidentialAuthMiddleware{enums.ScopeAdmin, registrationController.GetEmailAvailability}.Handle).Methods("GET")
 
 	// Listen for requests
 	err = http.ListenAndServe(fmt.Sprintf(":%v", config.APIPort), crossOriginMiddleware{r})
@@ -73,7 +74,7 @@ func main() {
 }
 
 type userAuthMiddleware struct {
-	requiredScope string
+	requiredScope enums.Scope
 	h             func(http.ResponseWriter, string, []byte)
 }
 
@@ -86,7 +87,7 @@ func (m userAuthMiddleware) Handle(w http.ResponseWriter, r *http.Request) {
 }
 
 type confidentialAuthMiddleware struct {
-	requiredScope string
+	requiredScope enums.Scope
 	h             func(http.ResponseWriter, map[string]string, []byte)
 }
 
@@ -108,7 +109,7 @@ func (m crossOriginMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request)
 }
 
 // Helper function to validate the access token provided with requests to the API
-func validateAccessToken(w http.ResponseWriter, r *http.Request, requiredScope string) (bool, []byte, string) {
+func validateAccessToken(w http.ResponseWriter, r *http.Request, requiredScope enums.Scope) (bool, []byte, string) {
 	// Verify that the request has an access token in it
 	token, found := utils.HTTP.GetBearerToken(r)
 	if !found {
@@ -128,7 +129,7 @@ func validateAccessToken(w http.ResponseWriter, r *http.Request, requiredScope s
 	}
 
 	// Verify that the token is valid for the required scope, and hasn't expired
-	if tokenPair.Scope != requiredScope || tokenPair.AccessTokenExpiry.Before(time.Now()) {
+	if utils.Auth.ContainsScope(tokenPair.Scopes, requiredScope) || tokenPair.AccessTokenExpiry.Before(time.Now()) {
 		utils.HTTP.RespondForbidden(w)
 		return false, nil, ""
 	}

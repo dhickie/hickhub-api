@@ -131,7 +131,8 @@ func (c *AuthController) authCodeToken(w http.ResponseWriter, code, clientID, re
 	}
 
 	// The code's valid, generate access and refresh tokens for the client
-	tokenPair, err := c.authService.GenerateAccessTokenPair(authorisation.UserID, authorisation.Scope)
+	scopeString := utils.Auth.JoinScopes(authorisation.Scopes)
+	tokenPair, err := c.authService.GenerateAccessTokenPair(authorisation.UserID, scopeString)
 	if err != nil {
 		utils.HTTP.RespondInternalServerError(w, err.Error())
 		return
@@ -141,7 +142,7 @@ func (c *AuthController) authCodeToken(w http.ResponseWriter, code, clientID, re
 		AccessToken:  tokenPair.AccessToken,
 		RefreshToken: tokenPair.RefreshToken,
 		ExpiresIn:    c.authService.GetAccessTokenLifetime(),
-		Scope:        authorisation.Scope,
+		Scope:        scopeString,
 		TokenType:    "bearer",
 	}
 
@@ -171,7 +172,7 @@ func (c *AuthController) refreshTokenToken(w http.ResponseWriter, refreshToken s
 		AccessToken:  tokenPair.AccessToken,
 		RefreshToken: tokenPair.RefreshToken,
 		ExpiresIn:    c.authService.GetAccessTokenLifetime(),
-		Scope:        tokenPair.Scope,
+		Scope:        utils.Auth.JoinScopes(tokenPair.Scopes),
 		TokenType:    "bearer",
 	}
 
@@ -190,7 +191,7 @@ func (c *AuthController) clientToken(w http.ResponseWriter, scope string) {
 		AccessToken:  tokenPair.AccessToken,
 		RefreshToken: tokenPair.RefreshToken,
 		ExpiresIn:    c.authService.GetAccessTokenLifetime(),
-		Scope:        tokenPair.Scope,
+		Scope:        scope,
 		TokenType:    "bearer",
 	}
 
