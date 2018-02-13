@@ -116,3 +116,19 @@ func (c *UserController) ChangePassword(w http.ResponseWriter, userID string, bo
 		return
 	}
 }
+
+// RegenerateAPIToken regenerates the API token for a user
+func (c *UserController) RegenerateAPIToken(w http.ResponseWriter, userID string, body []byte) {
+	// Use the auth service to regenerate the api key
+	newToken, err := c.authService.RegenerateAPIToken(userID)
+	if err != nil {
+		utils.HTTP.RespondInternalServerError(w, err.Error())
+		return
+	}
+
+	// Return the new token
+	response := models.RegenerateAPITokenResponse{
+		APIToken: newToken.AccessToken,
+	}
+	utils.HTTP.RespondOK(w, response)
+}

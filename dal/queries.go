@@ -5,6 +5,7 @@ var Queries = queriesStruct{
 	GetTokenPairByID:           getTokenPairByID,
 	GetTokenPairByAccessToken:  getTokenPairByAccessToken,
 	GetTokenPairByRefreshToken: getTokenPairByRefreshToken,
+	GetAPIToken:                getAPIToken,
 	InsertTokenPair:            insertTokenPair,
 	DeleteTokenPair:            deleteTokenPair,
 	GetClientByID:              getClientByID,
@@ -19,6 +20,7 @@ type queriesStruct struct {
 	GetTokenPairByID           string
 	GetTokenPairByAccessToken  string
 	GetTokenPairByRefreshToken string
+	GetAPIToken                string
 	InsertTokenPair            string
 	DeleteTokenPair            string
 	GetClientByID              string
@@ -33,6 +35,7 @@ type queriesStruct struct {
 const getTokenPairByID = getTokenPair + " WHERE id = $1"
 const getTokenPairByAccessToken = getTokenPair + " WHERE access_token = $1"
 const getTokenPairByRefreshToken = getTokenPair + " WHERE refresh_token = $1"
+const getAPIToken = getTokenPairByRefreshToken + " WHERE type = 'api' AND user_id = $1"
 const getTokenPair = `
 SELECT id,
 	access_token,

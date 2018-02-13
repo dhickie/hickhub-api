@@ -36,6 +36,7 @@ type AuthService interface {
 	ValidateAuthCode(code, clientID, redirectURI string) (*models.Authorisation, error)
 	ValidateRefreshToken(refreshToken string) (bool, error)
 	GenerateAPIToken(userID string) (*models.AccessTokenPair, error)
+	RegenerateAPIToken(userID string) (*models.AccessTokenPair, error)
 	GenerateAccessTokenPair(userID, scope string) (*models.AccessTokenPair, error)
 	RefreshAccessTokenPair(refreshToken string) (*models.AccessTokenPair, error)
 	GetAccessTokenLifetime() int
@@ -256,6 +257,31 @@ func (s *HickHubAuthService) ValidateRefreshToken(refreshToken string) (bool, er
 func (s *HickHubAuthService) GenerateAPIToken(userID string) (*models.AccessTokenPair, error) {
 	expiry := time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC)
 	return s.generateAccessTokenPairImpl(userID, enums.ScopeMessaging.String(), expiry, expiry, enums.TokenTypeAPI)
+}
+
+// RegenerateAPIToken regenerates the API token for a given user
+func (s *HickHubAuthService) RegenerateAPIToken(userID string) (*models.AccessTokenPair, error) {
+	// Find the current API token
+	currentToken, err := s.authDAL.GetAPITokenByUserID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Delete the current token from the database
+	if currentToken != nil {
+		err = s.authDAL.DeleteAccessTokenPair(currentToken)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Generate a new token pair for the user
+	newToken, err := s.GenerateAPIToken(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	return newToken, nil
 }
 
 // GenerateAccessTokenPair generates an access token and refresh token for the given user ID and scope

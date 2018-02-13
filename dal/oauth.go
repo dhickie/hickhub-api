@@ -19,16 +19,18 @@ type OAuthDAL interface {
 	GetAccessTokenPairByID(ID string) (*models.AccessTokenPair, error)
 	GetAccessTokenPairByAccessToken(accessToken string) (*models.AccessTokenPair, error)
 	GetAccessTokenPairByRefreshToken(refreshToken string) (*models.AccessTokenPair, error)
+	GetAPITokenByUserID(userID string) (*models.AccessTokenPair, error)
 	InsertAccessTokenPair(tokenPair *models.AccessTokenPair) error
 	DeleteAccessTokenPair(tokenPair *models.AccessTokenPair) error
 }
 
 // PostgresOAuthDAL is a Postgres implementation of the OAuthDAL interface
 type PostgresOAuthDAL struct {
-	db              *sql.DB
-	tokenCache      *cache.Cache
-	accessMapCache  *cache.Cache
-	refreshMapCache *cache.Cache
+	db               *sql.DB
+	tokenCache       *cache.Cache
+	accessMapCache   *cache.Cache
+	refreshMapCache  *cache.Cache
+	apiTokenMapCache map[string]string
 }
 
 // MustPostgresOAuthDAL either returns a valid PostgresOAuthDAL object or panics on error
@@ -52,10 +54,11 @@ func NewPostgresOAuthDAL(config *models.Config) (OAuthDAL, error) {
 	cleanup := 2 * time.Duration(config.RefreshTokenLifetime) * time.Second
 
 	return &PostgresOAuthDAL{
-		db:              db,
-		tokenCache:      cache.New(expiration, cleanup),
-		accessMapCache:  cache.New(expiration, cleanup),
-		refreshMapCache: cache.New(expiration, cleanup),
+		db:               db,
+		tokenCache:       cache.New(expiration, cleanup),
+		accessMapCache:   cache.New(expiration, cleanup),
+		refreshMapCache:  cache.New(expiration, cleanup),
+		apiTokenMapCache: make(map[string]string),
 	}, nil
 }
 
@@ -90,6 +93,17 @@ func (dal *PostgresOAuthDAL) GetAccessTokenPairByRefreshToken(refreshToken strin
 
 	// We need to go to the database :(
 	return dal.getFromDatabase(Queries.GetTokenPairByRefreshToken, refreshToken)
+}
+
+// GetAPITokenByUserID returns the access token pair which contains a user's API token
+func (dal *PostgresOAuthDAL) GetAPITokenByUserID(userID string) (*models.AccessTokenPair, error) {
+	// See if we can get the ID of the token pair from the api token cache
+	if cached, ok := dal.apiTokenMapCache[userID]; ok {
+		return dal.GetAccessTokenPairByID(cached)
+	}
+
+	// Go to the database
+	return dal.getFromDatabase(Queries.GetAPIToken, userID)
 }
 
 // InsertAccessTokenPair inserts the provided access token pair in to the database and populates the cache
@@ -152,13 +166,14 @@ func (dal *PostgresOAuthDAL) getFromDatabase(query, searchParam string) (*models
 	result := new(models.AccessTokenPair)
 	var joinedScopes string
 	var tokenType string
+	var userID sql.NullString
 	found, err := utils.SQL.GetSingle(rows,
 		&result.ID,
 		&result.AccessToken,
 		&result.RefreshToken,
 		&result.AccessTokenExpiry,
 		&result.RefreshTokenExpiry,
-		&result.UserID,
+		&userID,
 		&joinedScopes,
 		&tokenType)
 	if !found || err != nil {
@@ -166,6 +181,9 @@ func (dal *PostgresOAuthDAL) getFromDatabase(query, searchParam string) (*models
 	}
 
 	// Convert the scopes
+	if userID.Valid {
+		result.UserID = userID.String
+	}
 	result.Scopes, _ = utils.Auth.SplitScopes(joinedScopes)
 	result.Type, _ = enums.ParseTokenType(tokenType)
 
@@ -181,6 +199,11 @@ func (dal *PostgresOAuthDAL) populateCache(tokenPair *models.AccessTokenPair) {
 	// Add a map of the access token and refresh token to the pair's ID
 	dal.accessMapCache.Set(tokenPair.AccessToken, tokenPair.ID, cache.DefaultExpiration)
 	dal.refreshMapCache.Set(tokenPair.RefreshToken, tokenPair.ID, cache.DefaultExpiration)
+
+	// If this is an API token, then populate the api token cache
+	if tokenPair.Type == enums.TokenTypeAPI {
+		dal.apiTokenMapCache[tokenPair.UserID] = tokenPair.ID
+	}
 }
 
 func (dal *PostgresOAuthDAL) deleteFromCache(tokenPair *models.AccessTokenPair) {
@@ -190,4 +213,10 @@ func (dal *PostgresOAuthDAL) deleteFromCache(tokenPair *models.AccessTokenPair) 
 	// Delete from the token maps
 	dal.accessMapCache.Delete(tokenPair.AccessToken)
 	dal.refreshMapCache.Delete(tokenPair.RefreshToken)
+
+	// If the token pair being delete is an API token, then delete the user ID from the
+	// api token cache
+	if tokenPair.Type == enums.TokenTypeAPI {
+		delete(dal.apiTokenMapCache, tokenPair.UserID)
+	}
 }

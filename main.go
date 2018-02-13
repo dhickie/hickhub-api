@@ -62,6 +62,7 @@ func main() {
 	r.HandleFunc("/user/messaging/request", userAuthMiddleware{enums.ScopeMessaging, messagingController.Request}.Handle).Methods("POST")
 	r.HandleFunc("/user/email", userAuthMiddleware{enums.ScopeUser, userController.ChangeEmail}.Handle).Methods("POST")
 	r.HandleFunc("/user/password", userAuthMiddleware{enums.ScopeUser, userController.ChangePassword}.Handle).Methods("POST")
+	r.HandleFunc("/user/apitoken/regenerate", userAuthMiddleware{enums.ScopeUser, userController.RegenerateAPIToken}.Handle).Methods("POST")
 
 	r.HandleFunc("/registration/user", confidentialAuthMiddleware{enums.ScopeAdmin, registrationController.RegisterNewUser}.Handle).Methods("POST")
 	r.HandleFunc("/registration/email/{email}/available", confidentialAuthMiddleware{enums.ScopeAdmin, registrationController.GetEmailAvailability}.Handle).Methods("GET")
@@ -129,7 +130,7 @@ func validateAccessToken(w http.ResponseWriter, r *http.Request, requiredScope e
 	}
 
 	// Verify that the token is valid for the required scope, and hasn't expired
-	if utils.Auth.ContainsScope(tokenPair.Scopes, requiredScope) || tokenPair.AccessTokenExpiry.Before(time.Now()) {
+	if !utils.Auth.ContainsScope(tokenPair.Scopes, requiredScope) || tokenPair.AccessTokenExpiry.Before(time.Now()) {
 		utils.HTTP.RespondForbidden(w)
 		return false, nil, ""
 	}

@@ -29,3 +29,8 @@ type NewUserResponse struct {
 type EmailAvailabilityResponse struct {
 	EmailAvailable bool `json:"email_available"`
 }
+
+// RegenerateAPITokenResponse is returned when a user requests their API token is regenerated
+type RegenerateAPITokenResponse struct {
+	APIToken string `json:"api_token"`
+}
